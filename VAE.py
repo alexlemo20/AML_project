@@ -55,7 +55,7 @@ class VAECoreModel(nn.Module):
         self.x_dim = x_dim
 
     def reparameterization(self, mean, var):
-       
+        
         z = mean + var * torch.randn_like(mean)
         return z
 
@@ -67,7 +67,7 @@ class VAECoreModel(nn.Module):
         log_var_ki = log_var.unsqueeze(1).repeat(1, self.k, 1) #torch.tile(log_var, (k,1))
         mean_ki = mean.unsqueeze(1).repeat(1, self.k, 1) # torch.tile(mean, (k,1))
 
-        z = self.reparameterization(mean_ki, torch.exp(log_var_ki)) # takes exponential function (log var -> var)
+        z = self.reparameterization(mean_ki, torch.exp(log_var_ki))# takes exponential function (log var -> var)
 
         theta = self.Decoder(z)
 
@@ -119,6 +119,7 @@ class VAEModel():
                     
                     x = x.view(batch_size, self.x_dim)
 
+                    x = x.to(self.device)
                     optimizer.zero_grad()
 
                     theta, mean, log_var = self.model(x)
@@ -130,7 +131,7 @@ class VAEModel():
                     optimizer.step()
                     #exit(1)
                 
-                loss_epochs[epoch_counter] = overall_loss
+                loss_epochs[epoch_counter] = overall_loss/(batch_idx*batch_size)
                 print("\tEpoch", epoch_counter + 1, "complete!", "\tAverage Loss: ", overall_loss / (batch_idx*batch_size))
                 epoch_counter += 1
 
@@ -138,16 +139,16 @@ class VAEModel():
 
     def loss_function(self, x, theta, mean, log_var, batch_size):
         eps = 1e-8
-        mu_square = mean.mul(mean)
+        mu_square = mean.mul(mean).to(self.device)
         sigma_square = torch.exp(log_var)
         log_sigma_square = log_var
-        ones = torch.ones([batch_size, self.latent_dim])
-        D_KL = torch.sum((1/2)*(mu_square+sigma_square-ones-log_sigma_square))
+        ones = torch.ones([batch_size, self.latent_dim]).to(self.device)
+        D_KL = torch.sum((1/2)*(mu_square+sigma_square-ones-log_sigma_square)).to(self.device)
 
         #print("X: ", x.shape) # 20 x 784
         #print("theta : ",theta.shape)
         #print("2nd term: ", torch.log(theta + eps).shape) # 20 x 10 x 784
-        x_ki = x.unsqueeze(1).repeat(1, self.k, 1)
+        x_ki = x.unsqueeze(1).repeat(1, self.k, 1).to(self.device)
         #print("x_ki.shape : ",x_ki.shape)
         log_p = 1/self.k * torch.sum(x_ki * torch.log(theta + eps) + (1 - x_ki) * torch.log(1 - theta + eps))
 
@@ -172,18 +173,20 @@ class VAEModel():
         # below we get decoder outputs for test data
         with torch.no_grad():
             for batch_idx, (x, _) in enumerate(test_loader):
-                x = x.view(batch_size, self.x_dim)
+                x = x.view(batch_size, self.x_dim).to(self.device)
+
                 #x = torch.round(x)
 
                 # insert your code below to generate theta from x
                 theta, mean, log_var = self.model(x)    
-                loss = self.loss_function(x, theta, mean, log_var)
+                loss = self.loss_function(x, theta, mean, log_var,batch_size)
 
                 total_loss += loss.item()
                 
 
         avg_loss = total_loss / total_samples
-        
+        print("evaluation complete!", "\tAverage Loss: ", avg_loss)
+
         return avg_loss
 
 
