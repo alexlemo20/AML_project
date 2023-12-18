@@ -21,6 +21,8 @@ class ThresholdTransform(object):
 
 
 dataset_path = '~/datasets'
+outputs_dir = "outputs"
+save_outputs = False # If the program should save the losses to file
 
 batch_size = 20
 
@@ -48,9 +50,17 @@ test_loader  = DataLoader(dataset=test_dataset,  batch_size=batch_size, shuffle=
 
 vaeModel = VAEModel(vae_x_dim, vae_hidden_dim, vae_latent_dim, k=k)
 
-vae_overall_loss, vae_loss_epochs = vaeModel.train(train_loader, max_i, batch_size)
+vae_overall_loss, vae_loss_epochs, vae_nll_epochs = vaeModel.train(train_loader, max_i, batch_size)
 
-print(vae_overall_loss)
-print(vae_loss_epochs)
+if save_outputs:
+  torch.save(vae_loss_epochs, f"{outputs_dir}/vae_train_loss.pt")
+  torch.save(vae_nll_epochs, f"{outputs_dir}/vae_train_nll.pt")
 
-vae_avg_eval_loss = vaeModel.evaluate(test_loader, batch_size)
+print("Training", vae_loss_epochs, "Nll train", vae_nll_epochs)
+
+vae_avg_eval_loss, vae_avg_NLL = vaeModel.evaluate(test_loader, batch_size)
+print("Test", vae_avg_eval_loss, "Test nll", vae_avg_NLL)
+
+if save_outputs:
+  torch.save(vae_avg_eval_loss, f"{outputs_dir}/vae_eval_loss.pth")
+  torch.save(vae_avg_NLL, f"{outputs_dir}/vae_eval_nll.pth")

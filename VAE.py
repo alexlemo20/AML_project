@@ -102,48 +102,55 @@ class VAEModel():
     def train(self, train_loader, i_max, batch_size = 20):
         self.model.train()
 
-        loss_epochs = torch.zeros(np.sum([3**i for i in range(i_max+1)]))        
+        total_epochs = np.sum([3**i for i in range(i_max+1)])
+        loss_epochs = torch.zeros(total_epochs)
+        nll_epochs = torch.zeros(total_epochs)        
         
         epoch_counter = 0 
 
-        for i in range(i_max+1):
+        with tqdm(total=total_epochs) as pbar:
+            for i in range(i_max+1):
 
-            self.calculate_lr(i) # update the learning rate 
+                self.calculate_lr(i) # update the learning rate 
 
-            for j in tqdm(range(3**i)):
-                #for epoch in range(epochs):
-                optimizer = Adam(self.model.parameters(), lr=self.lr, betas=(0.9, 0.999),eps=0.0001)
-                
-                overall_loss = 0
-                for batch_idx, (x, _) in enumerate(train_loader):
+                for j in range(3**i):
+                    #for epoch in range(epochs):
+                    optimizer = Adam(self.model.parameters(), lr=self.lr, betas=(0.9, 0.999),eps=0.0001)
                     
-                    x = x.view(batch_size, self.x_dim)
+                    overall_loss = 0
+                    overall_nll = 0
+                    for batch_idx, (x, _) in enumerate(train_loader):
+                        
+                        x = x.view(batch_size, self.x_dim)
 
-                    x = x.to(self.device)
-                    optimizer.zero_grad()
+                        x = x.to(self.device)
+                        optimizer.zero_grad()
 
-                    theta, mean, log_var = self.model(x)
-                    loss = self.loss_function(x, theta, mean, log_var, batch_size)
+                        theta, mean, log_var = self.model(x)
+                        loss, NLL = self.loss_function(x, theta, mean, log_var)
 
-                    overall_loss += loss.item()
+                        overall_loss += loss.item()
+                        overall_nll += NLL.item()
+                        
+                        loss.backward()
+                        optimizer.step()
+                        #exit(1)
                     
-                    loss.backward()
-                    optimizer.step()
-                    #exit(1)
-                
-                loss_epochs[epoch_counter] = overall_loss/(batch_idx*batch_size)
-                print("\tEpoch", epoch_counter + 1, "complete!", "\tAverage Loss: ", overall_loss / (batch_idx*batch_size))
-                epoch_counter += 1
+                    loss_epochs[epoch_counter] = overall_loss/(batch_idx*batch_size)
+                    nll_epochs[epoch_counter] = overall_nll/(batch_idx*batch_size)
+                    print("\tEpoch", epoch_counter + 1, "complete!", "\tAverage Loss: ", overall_loss / (batch_idx*batch_size), "\tAverage NLL: ", overall_nll/(batch_idx*batch_size))
+                    epoch_counter += 1
+                    pbar.update(1)
 
-        return overall_loss, loss_epochs
+        return overall_loss, loss_epochs, nll_epochs
 
-    def loss_function(self, x, theta, mean, log_var, batch_size):
-        eps = 1e-8
+    def loss_function(self, x, theta, mean, log_var):
+        eps = 1e-10
         mu_square = mean.mul(mean).to(self.device)
         sigma_square = torch.exp(log_var)
         log_sigma_square = log_var
-        ones = torch.ones([batch_size, self.latent_dim]).to(self.device)
-        D_KL = torch.sum((1/2)*(mu_square+sigma_square-ones-log_sigma_square)).to(self.device)
+        #ones = torch.ones([batch_size, self.latent_dim]).to(self.device)
+        D_KL = 0.5 * torch.sum((mu_square+sigma_square-1-log_sigma_square)).to(self.device)
 
         #print("X: ", x.shape) # 20 x 784
         #print("theta : ",theta.shape)
@@ -154,21 +161,17 @@ class VAEModel():
 
         elbo = log_p - D_KL
 
-        return -elbo
-    
-    def loss_function2(x, theta, mean, log_var, batch_size):
-        e_log_p = torch.sum(torch.log(x*theta + (1-x)*(1-theta))) 
-        kl = 0.5 * torch.sum(-log_var + log_var.exp() + mean.pow(2) - 1)
+        NLL = -log_p
 
-        elbo = e_log_p - kl
+        return -elbo, NLL
 
-        return -elbo
 
     def evaluate(self, test_loader, batch_size):
         self.model.eval()
     
         total_samples = len(test_loader.dataset)
         total_loss = 0
+        total_NLL = 0
 
         # below we get decoder outputs for test data
         with torch.no_grad():
@@ -179,14 +182,16 @@ class VAEModel():
 
                 # insert your code below to generate theta from x
                 theta, mean, log_var = self.model(x)    
-                loss = self.loss_function(x, theta, mean, log_var,batch_size)
+                loss, NLL = self.loss_function(x, theta, mean, log_var)
 
                 total_loss += loss.item()
+                total_NLL += NLL.item()
                 
 
         avg_loss = total_loss / total_samples
-        print("evaluation complete!", "\tAverage Loss: ", avg_loss)
+        avg_NLL = total_NLL / total_samples
+        print("evaluation complete!", "\tAverage Loss: ", avg_loss,"\t NNL :",avg_NLL)
 
-        return avg_loss
+        return avg_loss, avg_NLL
 
 
