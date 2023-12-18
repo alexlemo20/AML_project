@@ -97,8 +97,8 @@ class VAEModel():
         self.decoder.to(self.device)
         self.model.to(self.device)
 
-    def calculate_lr(self, i):
-        self.lr = 0.001 * 10 ** (-i/7)
+    def calculate_lr(self, i, i_max):
+        self.lr = 0.001 * 10 ** (-i/i_max)
         
     def train(self, train_loader, i_max, batch_size = 20):
         self.model.train()
@@ -113,7 +113,7 @@ class VAEModel():
         with tqdm(total=total_epochs) as pbar:
             for i in range(i_max + 1):
 
-                self.calculate_lr(i) # update the learning rate 
+                self.calculate_lr(i, i_max) # update the learning rate 
 
                 for j in range(3**i):
                     #for epoch in range(epochs):
