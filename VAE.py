@@ -111,7 +111,7 @@ class VAEModel():
         epoch_counter = 0 
 
         with tqdm(total=total_epochs) as pbar:
-            for i in range(i_max+1):
+            for i in range(i_max + 1):
 
                 self.calculate_lr(i) # update the learning rate 
 
@@ -163,14 +163,13 @@ class VAEModel():
         x_ki = x.unsqueeze(1).repeat(1, self.k, 1).to(self.device)
         #print("x_ki.shape : ",x_ki.shape)
         log_p = 1/self.k * torch.sum(x_ki * torch.log(theta + eps) + (1 - x_ki) * torch.log(1 - theta + eps))
-        #log_p = 1/self.k * torch.sum(x_ki * torch.log(theta + eps) + (1 - x_ki) * torch.log(1 - theta + eps))
-
+        
         elbo = log_p - D_KL
 
         NLL = -log_p
 
         # z.shape = [batch_size, k, latent_dim]
-        active_units = torch.sum(torch.cov(z.mean(1)).mean(0)>10**-2) # sum over k
+        active_units = torch.sum(torch.cov(z.sum(1)).sum(0)>10**-2) # sum over k
 
 
         # Calculate activation probabilities
@@ -192,6 +191,7 @@ class VAEModel():
         total_samples = len(test_loader.dataset)
         total_loss = 0
         total_NLL = 0
+        total_nll = 0
 
         # below we get decoder outputs for test data
         with torch.no_grad():
@@ -203,15 +203,19 @@ class VAEModel():
                 # insert your code below to generate theta from x
                 theta, mean, log_var, z  = self.model(x)    
                 loss, NLL, active_units = self.loss_function(x, theta, mean, log_var, z)
+        #log_p = 1/self.k * torch.sum(x_ki * torch.log(theta + eps) + (1 - x_ki) * torch.log(1 - theta + eps))
 
                 total_loss += loss.item()
                 total_NLL += NLL.item()
-                
+                total_nll += NLL.item()
+
 
         avg_loss = total_loss / total_samples
         avg_NLL = total_NLL / total_samples
+        avg_NLL_epochs = total_nll / total_samples
+
         print("evaluation complete!", "\tAverage Loss: ", avg_loss,"\t NLL :",avg_NLL)
 
-        return avg_loss, avg_NLL
+        return avg_loss, avg_NLL, avg_NLL_epochs
 
 

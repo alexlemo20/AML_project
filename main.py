@@ -11,6 +11,7 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 
 from VAE import VAEModel
+from IWAE import IWAEModel
 
 class ThresholdTransform(object):
   def __init__(self, thr):
@@ -28,12 +29,12 @@ batch_size = 20
 
 # Max i value
 max_i = 3 # 7
-k = 10
+k = 5
 
 # Dimensions of the input, the hidden layer, and the latent space.
-vae_x_dim  = 784
-vae_hidden_dim = 200
-vae_latent_dim = 50
+x_dim  = 784
+hidden_dim = 200
+latent_dim = 50
 
 mnist_transform = transforms.Compose([
         transforms.ToTensor(),
@@ -48,18 +49,24 @@ train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=
 test_loader  = DataLoader(dataset=test_dataset,  batch_size=batch_size, shuffle=False)
 
 
-vaeModel = VAEModel(vae_x_dim, vae_hidden_dim, vae_latent_dim, k=k)
+iwaeModel = IWAEModel(x_dim, hidden_dim, latent_dim, k=k)
+vaeModel = VAEModel(x_dim, hidden_dim, latent_dim, k=k)
+
+iwae_overall_loss, iwae_loss_epochs, iwae_nll_epochs = iwaeModel.train(train_loader, max_i, batch_size)
+print("Training", iwae_loss_epochs, "Nll train", iwae_nll_epochs)
+
+iwae_avg_eval_loss, iwae_avg_NLL, iwae_NLL = iwaeModel.evaluate(test_loader, batch_size)
+print("Test", iwae_avg_eval_loss, "Test nll", iwae_avg_NLL, "Nll evaluation", iwae_NLL)
 
 vae_overall_loss, vae_loss_epochs, vae_nll_epochs = vaeModel.train(train_loader, max_i, batch_size)
+print("Training", vae_loss_epochs, "Nll train", vae_nll_epochs)
 
 if save_outputs:
   torch.save(vae_loss_epochs, f"{outputs_dir}/vae_train_loss.pt")
   torch.save(vae_nll_epochs, f"{outputs_dir}/vae_train_nll.pt")
 
-print("Training", vae_loss_epochs, "Nll train", vae_nll_epochs)
-
-vae_avg_eval_loss, vae_avg_NLL = vaeModel.evaluate(test_loader, batch_size)
-print("Test", vae_avg_eval_loss, "Test nll", vae_avg_NLL)
+vae_avg_eval_loss, vae_avg_NLL, vae_NLL = vaeModel.evaluate(test_loader, batch_size)
+print("Test", vae_avg_eval_loss, "Test nll", vae_avg_NLL, "Nll evaluation", vae_NLL)
 
 if save_outputs:
   torch.save(vae_avg_eval_loss, f"{outputs_dir}/vae_eval_loss.pth")
