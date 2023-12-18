@@ -14,11 +14,8 @@ from VAE import VAEModel
 from IWAE import IWAEModel
 
 class ThresholdTransform(object):
-  def __init__(self, thr):
-    self.thr = thr  # input threshold for [0..255] gray level, convert to [0..1]
-
   def __call__(self, x):
-    return (x > self.thr).to(x.dtype)  # do not change the data type
+    return (x > torch.rand_like(x)).to(x.dtype)  # do not change the data type
 
 
 dataset_path = '~/datasets'
@@ -38,7 +35,7 @@ latent_dim = 50
 
 mnist_transform = transforms.Compose([
         transforms.ToTensor(),
-        ThresholdTransform(thr=0.5)
+        ThresholdTransform(),
 ])
 
 
@@ -49,25 +46,33 @@ train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=
 test_loader  = DataLoader(dataset=test_dataset,  batch_size=batch_size, shuffle=False)
 
 
+### IWAE
 iwaeModel = IWAEModel(x_dim, hidden_dim, latent_dim, k=k)
+
+iwae_train_loss, iwae_train_nll = iwaeModel.train(train_loader, max_i, batch_size)
+print("Training", iwae_train_loss, "\nNLL train", iwae_train_nll)
+
+iwae_eval_loss, iwae_eval_nll = iwaeModel.evaluate(test_loader, batch_size)
+print("Evaluation complete!", "\tAverage Loss: ", iwae_eval_loss,"\t NLL :",iwae_eval_nll)
+
+### VAE
 vaeModel = VAEModel(x_dim, hidden_dim, latent_dim, k=k)
 
-iwae_overall_loss, iwae_loss_epochs, iwae_nll_epochs = iwaeModel.train(train_loader, max_i, batch_size)
-print("Training", iwae_loss_epochs, "Nll train", iwae_nll_epochs)
+vae_train_loss, vae_train_nll = vaeModel.train(train_loader, max_i, batch_size)
+print("Training", vae_train_loss, "\nNLL train", vae_train_nll)
 
-iwae_avg_eval_loss, iwae_avg_NLL, iwae_NLL = iwaeModel.evaluate(test_loader, batch_size)
-print("Test", iwae_avg_eval_loss, "Test nll", iwae_avg_NLL, "Nll evaluation", iwae_NLL)
-
-vae_overall_loss, vae_loss_epochs, vae_nll_epochs = vaeModel.train(train_loader, max_i, batch_size)
-print("Training", vae_loss_epochs, "Nll train", vae_nll_epochs)
+vae_eval_loss, vae_eval_nll = vaeModel.evaluate(test_loader, batch_size)
+print("Evaluation complete!", "\tAverage Loss: ", vae_eval_loss,"\t NLL :",vae_eval_nll)
 
 if save_outputs:
-  torch.save(vae_loss_epochs, f"{outputs_dir}/vae_train_loss.pt")
-  torch.save(vae_nll_epochs, f"{outputs_dir}/vae_train_nll.pt")
+  #IWAE
+  torch.save(iwae_eval_loss, f"{outputs_dir}/iwae_eval_loss.pt")
+  torch.save(iwae_eval_nll, f"{outputs_dir}/iwae_eval_nll.pt")
+  torch.save(iwae_train_loss, f"{outputs_dir}/iwae_train_loss.pt")
+  torch.save(iwae_train_nll, f"{outputs_dir}/iwae_train_nll.pt")
 
-vae_avg_eval_loss, vae_avg_NLL, vae_NLL = vaeModel.evaluate(test_loader, batch_size)
-print("Test", vae_avg_eval_loss, "Test nll", vae_avg_NLL, "Nll evaluation", vae_NLL)
-
-if save_outputs:
-  torch.save(vae_avg_eval_loss, f"{outputs_dir}/vae_eval_loss.pth")
-  torch.save(vae_avg_NLL, f"{outputs_dir}/vae_eval_nll.pth")
+  # VAE
+  torch.save(vae_eval_loss, f"{outputs_dir}/vae_eval_loss.pt")
+  torch.save(vae_eval_nll, f"{outputs_dir}/vae_eval_nll.pt")
+  torch.save(vae_train_loss, f"{outputs_dir}/vae_train_loss.pt")
+  torch.save(vae_train_nll, f"{outputs_dir}/vae_train_nll.pt")

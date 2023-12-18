@@ -21,7 +21,7 @@ class IWAEModel(VAEModel):
         
         log_p = 1/self.k * torch.sum(x_ki * torch.log(theta + eps) + (1 - x_ki) * torch.log(1 - theta + eps))
         
-        log_prior_z = dists.Normal(0, 1).log_prob(z).sum(2)
+        log_prior_z = dists.Normal(0, 1).log_prob(z).sum(2) # should this not be sum(1) ? 
         log_q_z_g_x = dists.Normal(mu_z_ki, sigma_z_ki).log_prob(z).sum(2)
         log_w = log_p + log_prior_z - log_q_z_g_x
 

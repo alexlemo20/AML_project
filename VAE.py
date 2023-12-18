@@ -77,9 +77,6 @@ class VAECoreModel(nn.Module):
 
 class VAEModel():
     def __init__(self, x_dim, hidden_dim, latent_dim, k=10) -> None:
-        """
-        learning_rate_funcion := calculate learning rate each epoch
-        """
         self.k = k
         self.x_dim = x_dim
         self.hidden_dim = hidden_dim
@@ -139,16 +136,15 @@ class VAEModel():
                         
                         loss.backward()
                         optimizer.step()
-                        #exit(1)
 
                     loss_epochs[epoch_counter] = overall_loss/(len(train_loader)*batch_size) # (len(data) - 1 * batch_Size)
                     nll_epochs[epoch_counter] = overall_nll/(len(train_loader)*batch_size)
                     active_units[epoch_counter] = overall_active_units/(len(train_loader))
-                    print("\tEpoch", epoch_counter + 1, "complete!", "\tAverage Loss: ", overall_loss / (len(train_loader)*batch_size), "\tAverage NLL: ", overall_nll/(len(train_loader)*batch_size), "\tAverage AU: ", overall_active_units/(len(train_loader)))
+                    print("\tEpoch", epoch_counter + 1, "\tAverage Loss: ", overall_loss / (len(train_loader)*batch_size), "\tAverage NLL: ", overall_nll/(len(train_loader)*batch_size), "\tAverage AU: ", overall_active_units/(len(train_loader)))
                     epoch_counter += 1
                     pbar.update(1)
 
-        return overall_loss, loss_epochs, nll_epochs
+        return loss_epochs, nll_epochs
 
     def loss_function(self, x, theta, mean, log_var, z):
         eps = 1e-10
@@ -191,31 +187,23 @@ class VAEModel():
         total_samples = len(test_loader.dataset)
         total_loss = 0
         total_NLL = 0
-        total_nll = 0
 
         # below we get decoder outputs for test data
         with torch.no_grad():
             for batch_idx, (x, _) in enumerate(test_loader):
                 x = x.view(batch_size, self.x_dim).to(self.device)
 
-                #x = torch.round(x)
-
                 # insert your code below to generate theta from x
                 theta, mean, log_var, z  = self.model(x)    
                 loss, NLL, active_units = self.loss_function(x, theta, mean, log_var, z)
-        #log_p = 1/self.k * torch.sum(x_ki * torch.log(theta + eps) + (1 - x_ki) * torch.log(1 - theta + eps))
 
                 total_loss += loss.item()
                 total_NLL += NLL.item()
-                total_nll += NLL.item()
 
 
         avg_loss = total_loss / total_samples
         avg_NLL = total_NLL / total_samples
-        avg_NLL_epochs = total_nll / total_samples
 
-        print("evaluation complete!", "\tAverage Loss: ", avg_loss,"\t NLL :",avg_NLL)
-
-        return avg_loss, avg_NLL, avg_NLL_epochs
+        return avg_loss, avg_NLL
 
 
