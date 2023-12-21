@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+import time
+
 import numpy as np
 
 from tqdm import tqdm
@@ -16,6 +18,20 @@ from IWAE import IWAEModel
 class ThresholdTransform(object):
   def __call__(self, x):
     return (x > torch.rand_like(x)).to(x.dtype)  # do not change the data type
+
+class BernoulliTransform(object):
+  def __call__(self, x):
+    print("SIZE OF X: ", x.size())
+    return torch.bernoulli(x).to(x.dtype)
+  
+# binarization based on the code of the paper
+class AlternativeTransform(object):
+  def __call__(self, x):
+    torch.manual_seed(30)
+    #torch.manual_seed(int(time.time() * 100))
+    num_cases, num_dims, num_batches = x.size()
+    return (x > torch.rand(num_cases, num_dims, num_batches)).to(x.dtype)
+
 
 
 dataset_path = '~/datasets'
@@ -35,7 +51,9 @@ latent_dim = 50
 
 mnist_transform = transforms.Compose([
         transforms.ToTensor(),
-        ThresholdTransform(),
+        #ThresholdTransform(),
+        BernoulliTransform(),
+        #AlternativeTransform(),
 ])
 
 
@@ -44,6 +62,7 @@ test_dataset  = MNIST(dataset_path, transform=mnist_transform, train=False, down
 
 train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
 test_loader  = DataLoader(dataset=test_dataset,  batch_size=batch_size, shuffle=False)
+
 
 
 ### IWAE

@@ -121,6 +121,10 @@ class VAEModel():
                     overall_active_units = 0
                     for batch_idx, (x, _) in enumerate(train_loader):
                         
+                        #non_zero_one_values = x[(x != 0) & (x != 1)]
+                        #print(" TRAINING DATA: ", non_zero_one_values)
+                        #print(" TRAINING DATA: ", torch.max(x))
+
                         x = x.view(batch_size, self.x_dim)
 
                         x = x.to(self.device)
@@ -200,7 +204,7 @@ class VAEModel():
                 total_loss += loss.item()
                 total_NLL += NLL.item()
 
-
+        # loglikelihood values should be estimated as the mean of L_50000
         avg_loss = total_loss / total_samples
         avg_NLL = total_NLL / total_samples
 
