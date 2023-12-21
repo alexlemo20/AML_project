@@ -3,6 +3,17 @@ import torch.nn as nn
 from torch.optim import Adam
 import numpy as np
 from tqdm import tqdm
+import torch.distributions as dists
+
+"""
+TODO: Check the k implementation
+      Check how the weights are calculated
+      Maybe optimize our code to get our results quicker (e.g. replace .item)
+      
+      Do torch.no_grad() as much as possible
+      Every function with a device kwarg, pass self.device in order to init the var on the current device used
+
+"""
 
 
 class VAEEncoder(nn.Module):
@@ -46,17 +57,19 @@ class VAEDecoder(nn.Module):
         return theta
 
 class VAECoreModel(nn.Module):
-    def __init__(self, Encoder, Decoder, x_dim, k=10):
+    def __init__(self, Encoder, Decoder, x_dim, device, k=10):
         super(VAECoreModel, self).__init__()
         self.Encoder = Encoder
         self.Decoder = Decoder
+        self.device = device
 
         self.k = k
         self.x_dim = x_dim
 
     def reparameterization(self, mean, var):
-        
-        z = mean + var * torch.randn_like(mean)
+        with torch.no_grad():
+            eps = torch.randn_like(mean, device=self.device)
+        z = mean + var * eps
         return z
 
 
@@ -83,12 +96,12 @@ class VAEModel():
         self.latent_dim = latent_dim
         self.lr = 0
         
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        
         self.encoder = VAEEncoder(input_dim=x_dim, hidden_dim=hidden_dim, latent_dim=latent_dim)
         self.decoder = VAEDecoder(latent_dim=latent_dim, hidden_dim = hidden_dim, output_dim = x_dim)
 
-        self.model = VAECoreModel(Encoder=self.encoder, Decoder=self.decoder, x_dim=x_dim, k=k)
-
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.model = VAECoreModel(Encoder=self.encoder, Decoder=self.decoder, x_dim=x_dim, k=k, device=self.device)
 
         self.encoder.to(self.device)
         self.decoder.to(self.device)
@@ -128,7 +141,7 @@ class VAEModel():
                         x = x.view(batch_size, self.x_dim)
 
                         x = x.to(self.device)
-                        optimizer.zero_grad()
+                        optimizer.zero_grad(set_to_none=True)
 
                         theta, mean, log_var, z = self.model(x)
                         loss, NLL, au = self.loss_function(x, theta, mean, log_var, z )
@@ -141,29 +154,28 @@ class VAEModel():
                         loss.backward()
                         optimizer.step()
 
-                    loss_epochs[epoch_counter] = overall_loss/(len(train_loader)*batch_size) # (len(data) - 1 * batch_Size)
-                    nll_epochs[epoch_counter] = overall_nll/(len(train_loader)*batch_size)
+                    loss_epochs[epoch_counter] = overall_loss/(len(train_loader)) # (len(data) - 1 * batch_Size)
+                    nll_epochs[epoch_counter] = overall_nll/(len(train_loader))
                     active_units[epoch_counter] = overall_active_units/(len(train_loader))
-                    print("\tEpoch", epoch_counter + 1, "\tAverage Loss: ", overall_loss / (len(train_loader)*batch_size), "\tAverage NLL: ", overall_nll/(len(train_loader)*batch_size), "\tAverage AU: ", overall_active_units/(len(train_loader)))
+                    print("\tEpoch", epoch_counter + 1, "\tAverage Loss: ",  overall_loss / (len(train_loader)), "\tAverage NLL: ", overall_nll/(len(train_loader)), "\tAverage AU: ", overall_active_units/(len(train_loader)))
                     epoch_counter += 1
                     pbar.update(1)
 
         return loss_epochs, nll_epochs
 
     def loss_function(self, x, theta, mean, log_var, z):
-        eps = 1e-10
+        #eps = 1e-10
         mu_square = mean.mul(mean).to(self.device)
         sigma_square = torch.exp(log_var)
         log_sigma_square = log_var
         #ones = torch.ones([batch_size, self.latent_dim]).to(self.device)
-        D_KL = 0.5 * torch.sum((mu_square+sigma_square-1-log_sigma_square)).to(self.device)
-        #D_KL = 0.5 * torch.sum((mu_square+sigma_square-1-log_sigma_square), dim=1).to(self.device)
+        D_KL = 0.5 * torch.sum((mu_square+sigma_square-1-log_sigma_square), axis=1).mean().to(self.device)
+        #D_KL = 0.5 * torch.sum((mu_square+sigma_square-1-log_sigma_square), dim=w).to(self.device)
 
 
         x_ki = x.unsqueeze(1).repeat(1, self.k, 1).to(self.device)
         #print("x_ki.shape : ",x_ki.shape)
-        log_p = 1/self.k * torch.sum(x_ki * torch.log(theta + eps) + (1 - x_ki) * torch.log(1 - theta + eps))
-        
+        log_p = 1/self.k * dists.Bernoulli(theta).log_prob(x_ki).sum(axis=2).mean()
         elbo = log_p - D_KL
 
         NLL = -log_p
@@ -185,29 +197,64 @@ class VAEModel():
         return -elbo, NLL, active_units
 
 
-    def evaluate(self, test_loader, batch_size):
+    def compute_evaluation_loss(self, x, k):
+        # do stuff
+        NLL = 0
+        old_k = self.k
+        # Set k to the new k for evaluation
+        self.k = k
+        self.model.k = k
+
+        theta, mean, log_var, z = self.model(x)
+        
+        
+
+
+        x_ki = x.unsqueeze(1).repeat(1, self.k, 1).to(self.device)
+        mu_z_ki = mean.unsqueeze(1).repeat(1, self.k, 1).to(self.device)
+        sigma_z_ki = torch.exp(0.5*log_var).unsqueeze(1).repeat(1, self.k, 1).to(self.device)        
+
+        log_p = 1/self.k * dists.Bernoulli(theta).log_prob(x_ki).sum(axis=2)
+
+        log_prior_z = dists.Normal(0, 1).log_prob(z).sum(axis=2) # should this not be sum(1) ? 
+        log_q_z_g_x = dists.Normal(mu_z_ki, sigma_z_ki).log_prob(z).sum(axis=2)
+        log_w = log_p + log_prior_z - log_q_z_g_x # shape: [batch_size, k]
+        #print("1 : ",(np.log(k)).shape)
+        #print("2 : ",(torch.logsumexp(log_w, 1)).shape)
+
+        #print("3 : ",(torch.logsumexp(log_w, 1) -  np.log(k)).shape)
+        NLL = -(torch.logsumexp(log_w, 1) -  np.log(k)).mean()
+
+        # Reset k
+        self.k = old_k
+        self.model.k = old_k
+
+        return NLL
+
+
+    def evaluate(self, test_loader, batch_size, k=5000):
         self.model.eval()
     
-        total_samples = len(test_loader.dataset)
-        total_loss = 0
+        total_samples = len(test_loader)
         total_NLL = 0
 
         # below we get decoder outputs for test data
-        with torch.no_grad():
-            for batch_idx, (x, _) in enumerate(test_loader):
-                x = x.view(batch_size, self.x_dim).to(self.device)
+        with tqdm(total=total_samples) as pbar:
+            with torch.no_grad():
+                for batch_idx, (x, _) in enumerate(test_loader):
+                    x = x.view(batch_size, self.x_dim).to(self.device)
+                    # insert your code below to generate theta from x
 
-                # insert your code below to generate theta from x
-                theta, mean, log_var, z  = self.model(x)    
-                loss, NLL, active_units = self.loss_function(x, theta, mean, log_var, z)
+                    #NLL1 = self.compute_evaluation_loss(x, k)
 
-                total_loss += loss.item()
-                total_NLL += NLL.item()
+                    theta, mean, log_var, z = self.model(x)
+                    loss, NLL, au = self.loss_function(x, theta, mean, log_var, z)
+                    
+                    total_NLL += NLL.item()
+                    pbar.update(1)
 
-        # loglikelihood values should be estimated as the mean of L_50000
-        avg_loss = total_loss / total_samples
         avg_NLL = total_NLL / total_samples
 
-        return avg_loss, avg_NLL
+        return avg_NLL
 
 
