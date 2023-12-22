@@ -89,14 +89,17 @@ class VAECoreModel(nn.Module):
     
 
 class VAEModel():
-    def __init__(self, x_dim, hidden_dim, latent_dim, k=10) -> None:
+    def __init__(self, x_dim, hidden_dim, latent_dim, k=10, device=None) -> None:
         self.k = k
         self.x_dim = x_dim
         self.hidden_dim = hidden_dim
         self.latent_dim = latent_dim
         self.lr = 0
         
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        if device:
+            self.device = "cpu"
+        else:
+            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         
         self.encoder = VAEEncoder(input_dim=x_dim, hidden_dim=hidden_dim, latent_dim=latent_dim)
         self.decoder = VAEDecoder(latent_dim=latent_dim, hidden_dim = hidden_dim, output_dim = x_dim)
