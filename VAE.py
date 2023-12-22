@@ -175,7 +175,7 @@ class VAEModel():
 
         x_ki = x.unsqueeze(1).repeat(1, self.k, 1).to(self.device)
         #print("x_ki.shape : ",x_ki.shape)
-        log_p = 1/self.k * dists.Bernoulli(theta).log_prob(x_ki).sum(axis=2).mean()
+        log_p =  dists.Bernoulli(theta).log_prob(x_ki).sum(axis=2).mean()
         elbo = log_p - D_KL
 
         NLL = -log_p
@@ -206,23 +206,18 @@ class VAEModel():
         self.model.k = k
 
         theta, mean, log_var, z = self.model(x)
-        
-        
 
 
         x_ki = x.unsqueeze(1).repeat(1, self.k, 1).to(self.device)
         mu_z_ki = mean.unsqueeze(1).repeat(1, self.k, 1).to(self.device)
         sigma_z_ki = torch.exp(0.5*log_var).unsqueeze(1).repeat(1, self.k, 1).to(self.device)        
 
-        log_p = 1/self.k * dists.Bernoulli(theta).log_prob(x_ki).sum(axis=2)
+        log_p =  dists.Bernoulli(theta).log_prob(x_ki).sum(axis=2)
 
         log_prior_z = dists.Normal(0, 1).log_prob(z).sum(axis=2) # should this not be sum(1) ? 
         log_q_z_g_x = dists.Normal(mu_z_ki, sigma_z_ki).log_prob(z).sum(axis=2)
         log_w = log_p + log_prior_z - log_q_z_g_x # shape: [batch_size, k]
-        #print("1 : ",(np.log(k)).shape)
-        #print("2 : ",(torch.logsumexp(log_w, 1)).shape)
-
-        #print("3 : ",(torch.logsumexp(log_w, 1) -  np.log(k)).shape)
+        
         NLL = -(torch.logsumexp(log_w, 1) -  np.log(k)).mean()
 
         # Reset k
@@ -245,13 +240,15 @@ class VAEModel():
                     x = x.view(batch_size, self.x_dim).to(self.device)
                     # insert your code below to generate theta from x
 
-                    #NLL1 = self.compute_evaluation_loss(x, k)
 
                     theta, mean, log_var, z = self.model(x)
-                    loss, NLL, au = self.loss_function(x, theta, mean, log_var, z)
+                    NLL = self.compute_evaluation_loss(x, 10)
+
+                    #_, NLL, _ = self.loss_function(x, theta, mean, log_var, z)
                     
                     total_NLL += NLL.item()
                     pbar.update(1)
+                    #print(total_NLL)
 
         avg_NLL = total_NLL / total_samples
 
