@@ -39,7 +39,7 @@ class VAEEncoder2(nn.Module):
         log_var_ki = log_var1.unsqueeze(1).repeat(1, self.k, 1) #torch.tile(log_var, (k,1))
         mean_ki = mean1.unsqueeze(1).repeat(1, self.k, 1) # torch.tile(mean, (k,1))
 
-        z1 = self.reparameterization(mean_ki, torch.exp(0.5*log_var_ki))
+        z1 = self.reparameterization(mean_ki, torch.exp(0.5*log_var_ki)) # 0.5*
 
         h_3      = self.activation(self.FC_enc3(z1))
         h_4      = self.activation(self.FC_enc3(h_3))
@@ -77,7 +77,7 @@ class VAEDecoder2(nn.Module):
         mean1    = self.FC_mean1(h_out_2)  # mean
         log_var1 = self.FC_var1(h_out_2)   # log of variance
         
-        zd = self.reparameterization(mean1, torch.exp(0.5*log_var1))
+        zd = self.reparameterization(mean1, torch.exp(0.5*log_var1)) # 
 
         h_out_3      = self.activation(self.FC_dec3(z1))
         h_out_4      = self.activation(self.FC_dec4(h_out_3))
@@ -110,7 +110,7 @@ class VAECoreModel2(nn.Module):
     def forward(self, x):
         mean1, log_var1, z1, mean2, log_var2 = self.Encoder(x)
         
-        z2 = self.reparameterization(mean2, torch.exp(0.5*log_var2))# takes exponential function (log var -> var)
+        z2 = self.reparameterization(mean2, torch.exp(0.5*log_var2))# takes exponential function (log var -> var) #0.5*
         # z = [batch_size, k, x_dim]
         
         theta, z_d, mean_d, log_var_d = self.Decoder(z1,z2)
@@ -203,7 +203,7 @@ class VAEModel2(VAEModel):
 
         lpxz1 = torch.sum(pxz1.log_prob(x_ki), dim=-1)
 
-        pz1z2 = dists.Normal(mean_d, (log_var_d).exp()) 
+        pz1z2 = dists.Normal(mean_d, (0.5*log_var_d).exp()) 
         lpz1z2 = torch.sum(pz1z2.log_prob(z1), dim=-1) 
         
         
@@ -214,13 +214,13 @@ class VAEModel2(VAEModel):
         mean1 = mean1.unsqueeze(1).repeat(1, self.k, 1).to(self.device) # CHECK
         log_var1 = log_var1.unsqueeze(1).repeat(1, self.k, 1).to(self.device) # CHECK
 
-        qz1x = dists.Normal(mean1, (log_var1).exp()) # 0.5
+        qz1x = dists.Normal(mean1, (0.5*log_var1).exp()) # 0.5
         # z1 = qz1x.sample(k) # we may need to sample and then update mean2
         lqz1x = torch.sum(qz1x.log_prob(z1), dim=-1)
 
         
 
-        qz2z1 = dists.Normal(mean2, (log_var2).exp()) # 0.5
+        qz2z1 = dists.Normal(mean2, (0.5*log_var2).exp()) # 0.5
         lqz2z1 = torch.sum(qz2z1.log_prob(z2), dim=-1)
         
         
@@ -238,6 +238,7 @@ class VAEModel2(VAEModel):
         #print("\n\nvae_elbo :",vae_elbo,"\n1st: ",torch.mean(lpxz1) , "\n 2nd: ", torch.mean(lpz1z2),"\n 3rd: ", torch.mean(lpz2), "\n 4th: ", torch.mean(lqz1x),"\n 5th: " ,torch.mean(lqz2z1))
 
         if vae_elbo > 0 :
+            print("here")
             exit(1)
         # z.shape = [batch_size, k, latent_dim]
         active_units = np.array([torch.sum(torch.cov(z1.sum(1)).sum(0)>10**-2).item(), # sum over k
@@ -261,7 +262,7 @@ class VAEModel2(VAEModel):
 
         x_ki = x.unsqueeze(1).repeat(1, self.k, 1).to(self.device)
         mu_z_ki = mean.unsqueeze(1).repeat(1, self.k, 1).to(self.device)
-        sigma_z_ki = torch.exp(0.5*log_var).unsqueeze(1).repeat(1, self.k, 1).to(self.device)        
+        sigma_z_ki = torch.exp(0.5*log_var).unsqueeze(1).repeat(1, self.k, 1).to(self.device)   # 0.5*      
 
         log_p =  dists.Bernoulli(theta).log_prob(x_ki).sum(axis=2)
 
@@ -289,12 +290,17 @@ class VAEModel2(VAEModel):
         with tqdm(total=total_samples) as pbar:
             with torch.no_grad():
                 for batch_idx, (x, _) in enumerate(test_loader):
-                    x = x.view(batch_size, self.x_dim).to(self.device)
 
-                    NLL = self.compute_evaluation_loss(x, k)
+                    x = x.view(batch_size, self.x_dim)
+
+                    x = x.to(self.device)
+                    #optimizer.zero_grad(set_to_none=True)
+
+                    theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d = self.model(x)
+                    loss, au = self.loss_function(x, theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d)
 
                     
-                    total_NLL += NLL.item()
+                    total_NLL += loss.item()
                     pbar.update(1)
 
         avg_NLL = total_NLL / total_samples
