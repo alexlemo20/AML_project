@@ -17,7 +17,7 @@ class IWAEModel2(VAEModel2):
         mu_z_ki = mean.unsqueeze(1).repeat(1, self.k, 1).to(self.device)
         sigma_z_ki = torch.exp(0.5*log_var).unsqueeze(1).repeat(1, self.k, 1).to(self.device)
         
-        log_p = 1/self.k * dists.Bernoulli(theta).log_prob(x_ki).sum(axis=2).mean()
+        log_p = dists.Bernoulli(theta).log_prob(x_ki).sum(axis=2).mean() # 1/self.k * 
         
         log_prior_z = dists.Normal(0, 1).log_prob(z).sum(2) # should this not be sum(1) ? 
         log_q_z_g_x = dists.Normal(mu_z_ki, sigma_z_ki).log_prob(z).sum(2)
@@ -28,10 +28,8 @@ class IWAEModel2(VAEModel2):
         w_tilde = log_w_tilde.exp().detach()
         # compute loss (negative IWAE objective)
         loss = -(w_tilde * log_w).sum(1).mean()
-
-        NLL = -log_p
         
         active_units = torch.sum(torch.cov(z.sum(1)).sum(0)>10**-2) # sum over k
 
-        return loss, NLL, active_units
+        return loss, active_units
 

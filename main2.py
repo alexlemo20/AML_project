@@ -14,12 +14,7 @@ import torch.distributions as dists
 
 from VAE2 import VAEModel2
 from IWAE2 import IWAEModel2
-
-
-class BernoulliTransform(object):
-  def __call__(self, x):
-    #print("SIZE OF X: ", x.size())
-    return dists.Bernoulli(x).sample().type(torch.float32) #torch.bernoulli(x).to(x.dtype)
+from binarizations import BernoulliTransform
 
 
 if __name__ == '__main__':
@@ -32,7 +27,7 @@ if __name__ == '__main__':
 
   # Max i value
   max_i = 1 #7
-  ks = [1,10,50]
+  ks = [1] #[1,10,50]
   eval_k = 5000
 
   # Dimensions of the input, the hidden layer, and the latent space.
@@ -63,21 +58,32 @@ if __name__ == '__main__':
 
   for k in ks:
     print("Running k: ", k)
+    ### IWAE
+    if run_iwae:
+      iwaeModel = IWAEModel2(x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=k)
+
+      iwae_train_loss = iwaeModel.train(train_loader, max_i, batch_size)
+      print("IWAE Training", iwae_train_loss)
+
+      iwae_eval_nll = iwaeModel.evaluate(test_loader, batch_size, k=eval_k)
+      print("IWAE Evaluation complete!", "\t NLL :",iwae_eval_nll)
+
+      if save_outputs:
+        torch.save(iwae_eval_nll, f"{outputs_dir}/k{k}_iwae_eval_nll.pt")
+        torch.save(iwae_train_loss, f"{outputs_dir}/k{k}_iwae_train_loss.pt")
+        torch.save(iwaeModel.model.state_dict(), f"{outputs_dir}/k{k}_iwae_trained_model.pt")  
+
     ### VAE
     if run_vae:
       vaeModel = VAEModel2(x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=k)
       
-      vae_train_loss, vae_train_nll = vaeModel.train(train_loader, max_i, batch_size)
-      print("Training", vae_train_loss, "\nNLL train", vae_train_nll)
+      vae_train_loss = vaeModel.train(train_loader, max_i, batch_size)
+      print("Training", vae_train_loss)
 
       vae_eval_nll = vaeModel.evaluate(test_loader, batch_size, k=eval_k)
       print("Evaluation complete!","\t NLL :",vae_eval_nll)
 
     if save_outputs:       
-
-      # VAE
-      if run_vae:
-        torch.save(vae_eval_nll, f"{outputs_dir}/k{k}_vae_eval_nll.pt")
-        torch.save(vae_train_loss, f"{outputs_dir}/k{k}_vae_train_loss.pt")
-        torch.save(vae_train_nll, f"{outputs_dir}/k{k}_vae_train_nll.pt")
-        torch.save(vaeModel.model.state_dict(), f"{outputs_dir}/k{k}_vae_trained_model.pt")        
+      torch.save(vae_eval_nll, f"{outputs_dir}/k{k}_vae_eval_nll.pt")
+      torch.save(vae_train_loss, f"{outputs_dir}/k{k}_vae_train_loss.pt")
+      torch.save(vaeModel.model.state_dict(), f"{outputs_dir}/k{k}_vae_trained_model.pt")        

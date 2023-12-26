@@ -39,7 +39,7 @@ class VAEEncoder2(nn.Module):
         log_var_ki = log_var1.unsqueeze(1).repeat(1, self.k, 1) #torch.tile(log_var, (k,1))
         mean_ki = mean1.unsqueeze(1).repeat(1, self.k, 1) # torch.tile(mean, (k,1))
 
-        z1 = self.reparameterization(mean_ki, log_var_ki.exp())
+        z1 = self.reparameterization(mean_ki, torch.exp(0.5*log_var_ki))
 
         h_3      = self.activation(self.FC_enc3(z1))
         h_4      = self.activation(self.FC_enc3(h_3))
@@ -77,7 +77,7 @@ class VAEDecoder2(nn.Module):
         mean1    = self.FC_mean1(h_out_2)  # mean
         log_var1 = self.FC_var1(h_out_2)   # log of variance
         
-        zd = self.reparameterization(mean1, log_var1.exp())
+        zd = self.reparameterization(mean1, torch.exp(0.5*log_var1))
 
         h_out_3      = self.activation(self.FC_dec3(z1))
         h_out_4      = self.activation(self.FC_dec4(h_out_3))
@@ -110,7 +110,7 @@ class VAECoreModel2(nn.Module):
     def forward(self, x):
         mean1, log_var1, z1, mean2, log_var2 = self.Encoder(x)
         
-        z2 = self.reparameterization(mean2, torch.exp(log_var2))# takes exponential function (log var -> var)
+        z2 = self.reparameterization(mean2, torch.exp(0.5*log_var2))# takes exponential function (log var -> var)
         # z = [batch_size, k, x_dim]
         
         theta, z_d, mean_d, log_var_d = self.Decoder(z1,z2)
@@ -146,7 +146,6 @@ class VAEModel2(VAEModel):
 
         total_epochs = np.sum([3**i for i in range(i_max+1)])
         loss_epochs = torch.zeros(total_epochs)
-        nll_epochs = torch.zeros(total_epochs) 
         active_units = [0,] * total_epochs        
         
         epoch_counter = 0 
@@ -155,11 +154,9 @@ class VAEModel2(VAEModel):
             for i in range(i_max + 1):
 
                 self.calculate_lr(i, i_max) # update the learning rate 
+                optimizer = Adam(self.model.parameters(), lr=self.lr, betas=(0.9, 0.999),eps=0.0001)
 
-                for j in range(3**i):
-                    #for epoch in range(epochs):
-                    optimizer = Adam(self.model.parameters(), lr=self.lr, betas=(0.9, 0.999),eps=0.0001)
-                    
+                for j in range(3**i):                    
                     overall_loss = 0
                     overall_active_units = np.array([0,0])
                     for batch_idx, (x, _) in enumerate(train_loader):
@@ -188,7 +185,7 @@ class VAEModel2(VAEModel):
                     epoch_counter += 1
                     pbar.update(1)
 
-        return loss_epochs, nll_epochs
+        return loss_epochs
 
     def loss_function(self, x, theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d):
 
@@ -293,17 +290,12 @@ class VAEModel2(VAEModel):
             with torch.no_grad():
                 for batch_idx, (x, _) in enumerate(test_loader):
                     x = x.view(batch_size, self.x_dim).to(self.device)
-                    # insert your code below to generate theta from x
 
+                    NLL = self.compute_evaluation_loss(x, k)
 
-                    theta, mean, log_var, z = self.model(x)
-                    NLL = self.compute_evaluation_loss(x, 10)
-
-                    #_, NLL, _ = self.loss_function(x, theta, mean, log_var, z)
                     
                     total_NLL += NLL.item()
                     pbar.update(1)
-                    #print(total_NLL)
 
         avg_NLL = total_NLL / total_samples
 

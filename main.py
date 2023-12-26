@@ -9,29 +9,12 @@ from torchvision.utils import save_image, make_grid
 from torchvision.datasets import MNIST
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
-import torch.distributions as dists
-
 
 from VAE import VAEModel
 from IWAE import IWAEModel
 
-class ThresholdTransform(object):
-  def __call__(self, x):
-    torch.manual_seed(30)
-    return (x > torch.rand_like(x)).to(x.dtype)  # do not change the data type
+from binarizations import BernoulliTransform, AlternativeTransform, ThresholdTransform
 
-class BernoulliTransform(object):
-  def __call__(self, x):
-    #print("SIZE OF X: ", x.size())
-    return dists.Bernoulli(x).sample().type(torch.float32) #torch.bernoulli(x).to(x.dtype)
-  
-# binarization based on the code of the paper
-class AlternativeTransform(object):
-  def __call__(self, x):
-    torch.manual_seed(30)
-    #torch.manual_seed(int(time.time() * 100))
-    num_cases, num_dims, num_batches = x.size()
-    return (x > torch.rand(num_cases, num_dims, num_batches)).to(x.dtype)
 
 
 if __name__ == '__main__':
@@ -44,7 +27,7 @@ if __name__ == '__main__':
 
   # Max i value
   max_i = 5 #7
-  ks = [1,10,50]
+  ks = [1,5,50]
   eval_k = 5000
 
   # Dimensions of the input, the hidden layer, and the latent space.
@@ -54,9 +37,7 @@ if __name__ == '__main__':
 
   mnist_transform = transforms.Compose([
           transforms.ToTensor(),
-          #ThresholdTransform(),
           BernoulliTransform(),
-          #AlternativeTransform(),
   ])
 
 
@@ -74,40 +55,34 @@ if __name__ == '__main__':
 
 
   for k in ks:
+    print("Running k: ", k)
     ### IWAE
     if run_iwae:
       iwaeModel = IWAEModel(x_dim, hidden_dim, latent_dim, k=k)
 
-      iwae_train_loss, iwae_train_nll = iwaeModel.train(train_loader, max_i, batch_size)
-      print("Training", iwae_train_loss, "\nNLL train", iwae_train_nll)
+      iwae_train_loss = iwaeModel.train(train_loader, max_i, batch_size)
+      print("IWAE Training", iwae_train_loss)
 
       iwae_eval_nll = iwaeModel.evaluate(test_loader, batch_size, k=eval_k)
-      print("Evaluation complete!", "\t NLL :",iwae_eval_nll)
+      print("IWAE Evaluation complete!", "\t NLL :",iwae_eval_nll)
+
+      if save_outputs:
+        torch.save(iwae_eval_nll, f"{outputs_dir}/k{k}_iwae_eval_nll.pt")
+        torch.save(iwae_train_loss, f"{outputs_dir}/k{k}_iwae_train_loss.pt")
+        torch.save(iwaeModel.model.state_dict(), f"{outputs_dir}/k{k}_iwae_trained_model.pt")  
+
 
     ### VAE
     if run_vae:
       vaeModel = VAEModel(x_dim, hidden_dim, latent_dim, k=k)
-
-      #vae_eval_nll = vaeModel.evaluate(test_loader, batch_size, k=eval_k)
-      #print("Evaluation complete!","\t NLL :",vae_eval_nll)
       
-      vae_train_loss, vae_train_nll = vaeModel.train(train_loader, max_i, batch_size)
-      print("Training", vae_train_loss, "\nNLL train", vae_train_nll)
+      vae_train_loss = vaeModel.train(train_loader, max_i, batch_size)
+      print("VAE Training", vae_train_loss)
 
       vae_eval_nll = vaeModel.evaluate(test_loader, batch_size, k=eval_k)
-      print("Evaluation complete!","\t NLL :",vae_eval_nll)
+      print("VAE Evaluation complete!","\t NLL :",vae_eval_nll)
 
-    if save_outputs:
-      #IWAE
-      if run_iwae:
-        torch.save(iwae_eval_nll, f"{outputs_dir}/k{k}_iwae_eval_nll.pt")
-        torch.save(iwae_train_loss, f"{outputs_dir}/k{k}_iwae_train_loss.pt")
-        torch.save(iwae_train_nll, f"{outputs_dir}/k{k}_iwae_train_nll.pt")
-        torch.save(iwaeModel.model.state_dict(), f"{outputs_dir}/k{k}_iwae_trained_model.pt")        
-
-      # VAE
-      if run_vae:
+      if save_outputs:
         torch.save(vae_eval_nll, f"{outputs_dir}/k{k}_vae_eval_nll.pt")
         torch.save(vae_train_loss, f"{outputs_dir}/k{k}_vae_train_loss.pt")
-        torch.save(vae_train_nll, f"{outputs_dir}/k{k}_vae_train_nll.pt")
-        torch.save(vaeModel.model.state_dict(), f"{outputs_dir}/k{k}_vae_trained_model.pt")        
+        torch.save(vaeModel.model.state_dict(), f"{outputs_dir}/k{k}_vae_trained_model.pt")      
