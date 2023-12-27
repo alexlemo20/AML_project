@@ -26,8 +26,8 @@ if __name__ == '__main__':
   batch_size = 20
 
   # Max i value
-  max_i = 1 #7
-  ks = [1] #[1,10,50]
+  max_i = 5 #7
+  ks = [1,5,50]
   eval_k = 5000
 
   # Dimensions of the input, the hidden layer, and the latent space.
@@ -51,8 +51,8 @@ if __name__ == '__main__':
   train_dataset = MNIST(dataset_path, transform=mnist_transform, train=True, download=True)
   test_dataset  = MNIST(dataset_path, transform=mnist_transform, train=False, download=True)
 
-  train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, pin_memory=True) # num_workers=12
-  test_loader  = DataLoader(dataset=test_dataset,  batch_size=batch_size, shuffle=False, pin_memory=True) # num_workers=12
+  train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, pin_memory=True, num_workers=12) # num_workers=12
+  test_loader  = DataLoader(dataset=test_dataset,  batch_size=batch_size, shuffle=False, pin_memory=True, num_workers=12) # num_workers=12 <-- set workers to 0 if it crashes, idk why it doesnt work sometimes
 
 
 
@@ -83,7 +83,7 @@ if __name__ == '__main__':
       vae_eval_nll, active_units = vaeModel.evaluate(test_loader, batch_size, k=eval_k)
       print("Evaluation complete!","\t NLL :",vae_eval_nll, "\t Active Units: ", active_units)
 
-    if save_outputs:       
-      torch.save(vae_eval_nll, f"{outputs_dir}/k{k}_vae_eval_nll.pt")
-      torch.save(vae_train_loss, f"{outputs_dir}/k{k}_vae_train_loss.pt")
-      torch.save(vaeModel.model.state_dict(), f"{outputs_dir}/k{k}_vae_trained_model.pt")        
+      if save_outputs:       
+        torch.save(vae_eval_nll, f"{outputs_dir}/k{k}_vae_eval_nll.pt")
+        torch.save(vae_train_loss, f"{outputs_dir}/k{k}_vae_train_loss.pt")
+        torch.save(vaeModel.model.state_dict(), f"{outputs_dir}/k{k}_vae_trained_model.pt")        
