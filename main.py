@@ -26,7 +26,7 @@ if __name__ == '__main__':
   batch_size = 20
 
   # Max i value
-  max_i = 5 #7
+  max_i = 7 #7
   ks = [1,5,50]
   eval_k = 5000
 
@@ -63,8 +63,8 @@ if __name__ == '__main__':
       iwae_train_loss = iwaeModel.train(train_loader, max_i, batch_size)
       print("IWAE Training", iwae_train_loss)
 
-      iwae_eval_nll = iwaeModel.evaluate(test_loader, batch_size, k=eval_k)
-      print("IWAE Evaluation complete!", "\t NLL :",iwae_eval_nll)
+      iwae_eval_nll, active_units = iwaeModel.evaluate(test_loader, batch_size, k=eval_k)
+      print("IWAE Evaluation complete!", "\t NLL :",iwae_eval_nll, "\t Active units: ", active_units)
 
       if save_outputs:
         torch.save(iwae_eval_nll, f"{outputs_dir}/k{k}_iwae_eval_nll.pt")
@@ -79,8 +79,8 @@ if __name__ == '__main__':
       vae_train_loss = vaeModel.train(train_loader, max_i, batch_size)
       print("VAE Training", vae_train_loss)
 
-      vae_eval_nll = vaeModel.evaluate(test_loader, batch_size, k=eval_k)
-      print("VAE Evaluation complete!","\t NLL :",vae_eval_nll)
+      vae_eval_nll, active_units = vaeModel.evaluate(test_loader, batch_size, k=eval_k)
+      print("VAE Evaluation complete!","\t NLL :",vae_eval_nll, "\t Active units: ", active_units)
 
       if save_outputs:
         torch.save(vae_eval_nll, f"{outputs_dir}/k{k}_vae_eval_nll.pt")

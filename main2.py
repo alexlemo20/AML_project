@@ -21,8 +21,8 @@ if __name__ == '__main__':
   dataset_path = '~/datasets'
   outputs_dir = "outputs/L2"
   save_outputs = False # If the program should save the losses to file
-  run_iwae = False
-  run_vae = True
+  run_iwae = True
+  run_vae = False
   batch_size = 20
 
   # Max i value
@@ -65,8 +65,8 @@ if __name__ == '__main__':
       iwae_train_loss = iwaeModel.train(train_loader, max_i, batch_size)
       print("IWAE Training", iwae_train_loss)
 
-      iwae_eval_nll = iwaeModel.evaluate(test_loader, batch_size, k=eval_k)
-      print("IWAE Evaluation complete!", "\t NLL :",iwae_eval_nll)
+      iwae_eval_nll, active_units = iwaeModel.evaluate(test_loader, batch_size, k=eval_k)
+      print("IWAE Evaluation complete!", "\t NLL: ", iwae_eval_nll, "\t Active Units: ", active_units)
 
       if save_outputs:
         torch.save(iwae_eval_nll, f"{outputs_dir}/k{k}_iwae_eval_nll.pt")
@@ -76,12 +76,12 @@ if __name__ == '__main__':
     ### VAE
     if run_vae:
       vaeModel = VAEModel2(x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=k)
-      
+
       vae_train_loss = vaeModel.train(train_loader, max_i, batch_size)
       print("Training", vae_train_loss)
 
-      vae_eval_nll = vaeModel.evaluate(test_loader, batch_size, k=eval_k)
-      print("Evaluation complete!","\t NLL :",vae_eval_nll)
+      vae_eval_nll, active_units = vaeModel.evaluate(test_loader, batch_size, k=eval_k)
+      print("Evaluation complete!","\t NLL :",vae_eval_nll, "\t Active Units: ", active_units)
 
     if save_outputs:       
       torch.save(vae_eval_nll, f"{outputs_dir}/k{k}_vae_eval_nll.pt")

@@ -210,7 +210,9 @@ class VAEModel():
         self.k = old_k
         self.model.k = old_k
 
-        return NLL
+        active_units = torch.sum(torch.cov(z.sum(1)).sum(0)>10**-2) # sum over k
+
+        return NLL, active_units
 
 
     def evaluate(self, test_loader, batch_size, k=5000):
@@ -218,6 +220,7 @@ class VAEModel():
     
         total_samples = len(test_loader)
         total_NLL = 0
+        overall_active_units = 0
 
         # below we get decoder outputs for test data
         with tqdm(total=total_samples) as pbar:
@@ -225,13 +228,16 @@ class VAEModel():
                 for batch_idx, (x, _) in enumerate(test_loader):
                     x = x.view(batch_size, self.x_dim).to(self.device)
 
-                    NLL = self.compute_evaluation_loss(x, k)
+                    NLL, au = self.compute_evaluation_loss(x, k)
 
                     total_NLL += NLL.item()
                     pbar.update(1)
 
-        avg_NLL = total_NLL / total_samples
+                    overall_active_units += au
 
-        return avg_NLL
+        avg_NLL = total_NLL / total_samples
+        active_units = overall_active_units / len(test_loader)
+
+        return avg_NLL, active_units
 
 

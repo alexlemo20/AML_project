@@ -190,7 +190,6 @@ class VAEModel2(VAEModel):
     def loss_function(self, x, theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d):
 
         #z1, qz1x, z2, qz2z1 = self.encoder(x, n_samples)
-        ###
         #pz1z2 = self.decode_z2_to_z1(z2) # tfd.Normal(self.lmu(h2), self.lstd(h2) + 1e-6)
         #logits = self.decode_z1_to_x(z1)
         #pxz1 = tfd.Bernoulli(logits=logits)
@@ -206,25 +205,20 @@ class VAEModel2(VAEModel):
         pz1z2 = dists.Normal(mean_d, (0.5*log_var_d).exp()) 
         lpz1z2 = torch.sum(pz1z2.log_prob(z1), dim=-1) 
         
-        
         pz2 = dists.Normal(0, 1) # Between encode / decoder
         lpz2 = torch.sum(pz2.log_prob(z2), dim=-1)
         
-
         mean1 = mean1.unsqueeze(1).repeat(1, self.k, 1).to(self.device) # CHECK
         log_var1 = log_var1.unsqueeze(1).repeat(1, self.k, 1).to(self.device) # CHECK
 
-        qz1x = dists.Normal(mean1, (0.5*log_var1).exp()) # 0.5
+        qz1x = dists.Normal(mean1, (0.5*log_var1).exp())
         # z1 = qz1x.sample(k) # we may need to sample and then update mean2
         lqz1x = torch.sum(qz1x.log_prob(z1), dim=-1)
 
-        
-
-        qz2z1 = dists.Normal(mean2, (0.5*log_var2).exp()) # 0.5
+        qz2z1 = dists.Normal(mean2, (0.5*log_var2).exp())
         lqz2z1 = torch.sum(qz2z1.log_prob(z2), dim=-1)
         
-        
-        log_w = lpxz1 + lpz1z2 + lpz2 - lqz1x - lqz2z1 #
+        log_w = lpxz1 + lpz1z2 + lpz2 - lqz1x - lqz2z1
         #print(log_w.shape)
 
         # ---- regular VAE elbo
@@ -232,11 +226,9 @@ class VAEModel2(VAEModel):
 
         vae_elbo = torch.mean(log_w) # CHECK: tf.reduce_mean(tf.reduce_mean(log_w, axis=0), axis=-1)
 
-
         #print("z1: ", z1.shape, "\t z2: ", z2.shape)
         #print("\n \n Z1: ", z1)
         #print("\n\nvae_elbo :",vae_elbo,"\n1st: ",torch.mean(lpxz1) , "\n 2nd: ", torch.mean(lpz1z2),"\n 3rd: ", torch.mean(lpz2), "\n 4th: ", torch.mean(lqz1x),"\n 5th: " ,torch.mean(lqz2z1))
-
         if vae_elbo > 0 :
             print("here")
             exit(1)
@@ -287,6 +279,7 @@ class VAEModel2(VAEModel):
         total_NLL = 0
 
         # below we get decoder outputs for test data
+        overall_active_units = 0
         with tqdm(total=total_samples) as pbar:
             with torch.no_grad():
                 for batch_idx, (x, _) in enumerate(test_loader):
@@ -298,11 +291,17 @@ class VAEModel2(VAEModel):
 
                     theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d = self.model(x)
                     loss, au = self.loss_function(x, theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d)
-
+                    # ---------------------------------------
+                    # may need to use compute evaluation loss
+                    # ---------------------------------------
                     
                     total_NLL += loss.item()
                     pbar.update(1)
 
-        avg_NLL = total_NLL / total_samples
+                    overall_active_units += au
 
-        return avg_NLL
+
+        avg_NLL = total_NLL / total_samples
+        active_units = overall_active_units / len(test_loader)
+
+        return avg_NLL, active_units
