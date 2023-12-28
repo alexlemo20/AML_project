@@ -103,12 +103,12 @@ class VAEModel():
         
         self.encoder = VAEEncoder(input_dim=x_dim, hidden_dim=hidden_dim, latent_dim=latent_dim)
         self.decoder = VAEDecoder(latent_dim=latent_dim, hidden_dim = hidden_dim, output_dim = x_dim)
-
-        self.model = VAECoreModel(Encoder=self.encoder, Decoder=self.decoder, x_dim=x_dim, k=k, device=self.device)
-
         self.encoder.to(self.device)
         self.decoder.to(self.device)
+
+        self.model = VAECoreModel(Encoder=self.encoder, Decoder=self.decoder, x_dim=x_dim, k=k, device=self.device)
         self.model.to(self.device)
+        self.model = torch.compile(self.model)
 
     def calculate_lr(self, i, i_max):
         self.lr = 0.001 * 10 ** (-i/i_max)
@@ -124,11 +124,13 @@ class VAEModel():
 
         with tqdm(total=total_epochs) as pbar:
             for i in range(i_max + 1):
+                if i > 0:
+                    return 0
 
                 self.calculate_lr(i, i_max) # update the learning rate 
                 optimizer = Adam(self.model.parameters(), lr=self.lr, betas=(0.9, 0.999),eps=0.0001)
 
-                for j in range(3**i):                    
+                for j in range(3**i):                  
                     overall_loss = 0
                     overall_active_units = 0
                     for batch_idx, (x, _) in enumerate(train_loader):
@@ -139,7 +141,6 @@ class VAEModel():
 
                         theta, mean, log_var, z = self.model(x)
                         loss, au = self.loss_function(x, theta, mean, log_var, z )
-                        
 
                         overall_loss += loss.item()
                         overall_active_units += au.item()
