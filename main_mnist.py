@@ -55,12 +55,18 @@ if __name__ == '__main__':
   torch.set_float32_matmul_precision('high')
 
   for k in ks:
-    print("Running k: ", k)
+    print("Running k: ", k, " GPU: ", torch.cuda.is_available())
     ### IWAE
     if run_iwae:
       iwaeModel = IWAEModel(x_dim, hidden_dim, latent_dim, k=k)
 
-      iwae_train_loss = iwaeModel.train(train_loader, max_i, batch_size)
+      from torch.profiler import profile, record_function, ProfilerActivity
+      with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
+        iwae_train_loss = iwaeModel.train(train_loader, max_i, batch_size)
+        
+      print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
+      print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
+      exit(1)
       print("IWAE Training", iwae_train_loss)
 
       iwae_eval_nll, active_units = iwaeModel.evaluate(test_loader, batch_size, k=eval_k)

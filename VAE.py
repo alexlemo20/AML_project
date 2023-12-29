@@ -108,6 +108,7 @@ class VAEModel():
         self.model = VAECoreModel(Encoder=self.encoder, Decoder=self.decoder, x_dim=x_dim, device=self.device)
         self.model.to(self.device)
         if self.device == "cuda" and compile_model:
+            print("Compiled model")
             self.model = torch.compile(self.model, mode="reduce-overhead")
 
     def calculate_lr(self, i, i_max):
@@ -124,7 +125,8 @@ class VAEModel():
 
         with tqdm(total=total_epochs) as pbar:
             for i in range(i_max + 1):
-
+                if i > 1:
+                    return 0
                 self.calculate_lr(i, i_max) # update the learning rate 
                 optimizer = Adam(self.model.parameters(), lr=self.lr, betas=(0.9, 0.999),eps=0.0001)
 
