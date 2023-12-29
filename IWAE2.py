@@ -36,6 +36,8 @@ class IWAEModel2(VAEModel2):
         
         log_w = lpxz1 + lpz1z2 + lpz2 - lqz1x - lqz2z1
         
+
+        print("lpxz1 : ",lpxz1, "lpz1z2 - lqz1x : ", lpz1z2 - lqz1x, "lpz2 - lqz1x : ",lpz2 - lqz1x)
         # loss = - torch.mean(log_w) # CHECK: tf.reduce_mean(tf.reduce_mean(log_w, axis=0), axis=-1)
 
         # copmute normalized importance weights (no gradient)

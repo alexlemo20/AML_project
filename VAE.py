@@ -170,6 +170,7 @@ class VAEModel():
         active_units = torch.sum(torch.cov(z.sum(1)).sum(0)>10**-2) # sum over k
 
 
+
         # Calculate activation probabilities
         #activation_probs = torch.sigmoid(mean)
         # Calculate covariance term
@@ -205,6 +206,7 @@ class VAEModel():
         log_w = log_p + log_prior_z - log_q_z_g_x # shape: [batch_size, k]
         
         NLL = -(torch.logsumexp(log_w, 1) -  np.log(k)).mean()
+
 
         # Reset k
         self.k = old_k

@@ -26,7 +26,7 @@ if __name__ == '__main__':
   batch_size = 20
 
   # Max i value
-  max_i = 1 #7
+  max_i = 5 #7
   ks = [1] #[1,10,50]
   eval_k = 5000
 
