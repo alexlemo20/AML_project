@@ -9,8 +9,8 @@ from VAE import VAEModel
 
 
 class IWAEModel(VAEModel):
-    def __init__(self, x_dim, hidden_dim, latent_dim, k=10, device=None):
-        super(IWAEModel, self).__init__(x_dim, hidden_dim, latent_dim, k=k, device=device)
+    def __init__(self, x_dim, hidden_dim, latent_dim, k=10, device=None, compile_model=True):
+        super(IWAEModel, self).__init__(x_dim, hidden_dim, latent_dim, k=k, device=device, compile_model=compile_model)
 
     def loss_function(self, x, theta, mean, log_var, z):
         x_ki = x.unsqueeze(1).repeat(1, self.k, 1).to(self.device)
@@ -29,7 +29,8 @@ class IWAEModel(VAEModel):
         # compute loss (negative IWAE objective)
         loss = -(w_tilde * log_w).sum(1).mean()
         
-        active_units = torch.sum(torch.cov(z.sum(1)).sum(0)>10**-2) # sum over k
+        with torch.no_grad():
+            active_units = torch.sum(torch.cov(z.sum(1)).sum(0)>10**-2) # sum over k
 
         return loss, active_units
 
