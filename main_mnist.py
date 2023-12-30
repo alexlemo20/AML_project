@@ -23,11 +23,11 @@ if __name__ == '__main__':
   save_outputs = True # If the program should save the losses to file
   run_iwae = True
   run_vae = True
-  batch_size = 20
+  batch_size = 40
 
   # Max i value
   max_i = 7 
-  ks = [5,50]
+  ks = [1,5,50]
   eval_k = 5000
 
   # Dimensions of the input, the hidden layer, and the latent space.
@@ -58,15 +58,10 @@ if __name__ == '__main__':
     print("Running k: ", k, " GPU: ", torch.cuda.is_available())
     ### IWAE
     if run_iwae:
+      print("Running iwae")
       iwaeModel = IWAEModel(x_dim, hidden_dim, latent_dim, k=k)
 
-      from torch.profiler import profile, record_function, ProfilerActivity
-      with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
-        iwae_train_loss = iwaeModel.train(train_loader, max_i, batch_size)
-        
-      print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
-      print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
-      exit(1)
+      iwae_train_loss = iwaeModel.train(train_loader, max_i, batch_size)
       print("IWAE Training", iwae_train_loss)
 
       iwae_eval_nll, active_units = iwaeModel.evaluate(test_loader, batch_size, k=eval_k)
@@ -81,6 +76,7 @@ if __name__ == '__main__':
 
     ### VAE
     if run_vae:
+      print("Running vae")
       vaeModel = VAEModel(x_dim, hidden_dim, latent_dim, k=k)
       
       vae_train_loss = vaeModel.train(train_loader, max_i, batch_size)

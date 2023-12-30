@@ -125,10 +125,8 @@ class VAEModel():
 
         with tqdm(total=total_epochs) as pbar:
             for i in range(i_max + 1):
-                if i > 1:
-                    return 0
                 self.calculate_lr(i, i_max) # update the learning rate 
-                optimizer = Adam(self.model.parameters(), lr=self.lr, betas=(0.9, 0.999),eps=0.0001)
+                optimizer = Adam(self.model.parameters(), lr=self.lr, betas=(0.9, 0.999), eps=0.0001)
 
                 for j in range(3**i):                  
                     overall_loss = 0 #torch.zeros(1, device=self.device)
