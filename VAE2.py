@@ -141,6 +141,7 @@ class VAEModel2():
         self.encoder.to(self.device)
         self.decoder.to(self.device)
         self.model.to(self.device)
+        #Self.model = torch.compile(self.model, mode="reduce-overhead")
 
     def calculate_lr(self, i, i_max):
         self.lr = 0.001 * 10 ** (-i/i_max)
@@ -162,7 +163,7 @@ class VAEModel2():
                 for j in range(3**i):
                     overall_loss = 0
                     overall_active_units = np.array([0,0])
-                    for batch_idx, (x, _) in enumerate(train_loader):
+                    for batch_idx, (x, y) in enumerate(train_loader):
 
                         x = x.view(batch_size, self.x_dim)
 
@@ -213,8 +214,7 @@ class VAEModel2():
         
         mean1 = mean1.unsqueeze(1).repeat(1, self.k, 1).to(self.device)
         log_var1 = log_var1.unsqueeze(1).repeat(1, self.k, 1).to(self.device)
-        #print("mean1 : ",mean1.shape)
-        #print("z1 : ",z1.shape)
+
         qz1x = dists.Normal(mean1, (0.5*log_var1).exp())
         # z1 = qz1x.sample(k) # we may need to sample and then update mean2
         lqz1x = torch.sum(qz1x.log_prob(z1), dim=-1)
@@ -224,15 +224,8 @@ class VAEModel2():
         #print("\nmean2 : ",mean2.shape)
         qz2z1 = dists.Normal(mean2, (0.5*log_var2).exp())
         lqz2z1 = torch.sum(qz2z1.log_prob(z2), dim=-1)
-
-        #print("\n\n\n=======================\n\n\n")
-        #theta
-        #print("theta : ",theta.shape)
-
-        #print("x : ",x.shape)
-        #print("x_ki : ",x_ki.shape)
-
         
+        #[batch_size, k, k]
         lpz1z2 = lpz1z2.mean(2)
         lpz2 = lpz2.mean(2)
         lqz2z1 = lqz2z1.mean(2)
@@ -245,8 +238,7 @@ class VAEModel2():
         # ---- regular VAE elbo
         # mean over samples and batch
 
-        vae_elbo =(torch.logsumexp(log_w, 1) -  np.log(self.k)).mean() # CHECK: tf.reduce_mean(tf.reduce_mean(log_w, axis=0), axis=-1)
-
+        vae_elbo =  (torch.logsumexp(log_w, 1) -  np.log(self.k)).mean() # CHECK: tf.reduce_mean(tf.reduce_mean(log_w, axis=0), axis=-1)
 
         #NLL = -(torch.logsumexp(log_w, 1) -  np.log(self.k)).mean()
 

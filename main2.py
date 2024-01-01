@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
   # Max i value
   max_i = 5 #7
-  ks = [1] #[1,10,50]
+  ks = [5] #[1,10,50]
   eval_k = 5000
 
   # Dimensions of the input, the hidden layer, and the latent space.
