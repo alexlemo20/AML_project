@@ -171,7 +171,7 @@ class VAEModel2():
                         optimizer.zero_grad(set_to_none=True)
 
                         theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d = self.model(x)
-                        loss,  au = self.loss_function1(x, theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d)
+                        loss,  au = self.loss_function(x, theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d)
 
                         overall_loss += loss.item()
                         
@@ -188,7 +188,7 @@ class VAEModel2():
 
         return loss_epochs
 
-    def loss_function1(self, x, theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d):
+    def loss_function(self, x, theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d):
 
         #z1, qz1x, z2, qz2z1 = self.encoder(x, n_samples)
         #pz1z2 = self.decode_z2_to_z1(z2) # tfd.Normal(self.lmu(h2), self.lstd(h2) + 1e-6)
@@ -309,7 +309,7 @@ class VAEModel2():
                     #optimizer.zero_grad(set_to_none=True)
 
                     theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d = self.model(x)
-                    loss,  au  = self.loss_function1(x, theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d)
+                    loss,  au  = self.loss_function(x, theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d)
                     # ---------------------------------------
                     # may need to use compute evaluation loss
                     # ---------------------------------------

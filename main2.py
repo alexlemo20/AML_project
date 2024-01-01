@@ -22,7 +22,7 @@ if __name__ == '__main__':
   outputs_dir = "outputs/L2"
   save_outputs = False # If the program should save the losses to file
   run_iwae = True
-  run_vae = False
+  run_vae = False  
   batch_size = 20
 
   # Max i value
@@ -60,6 +60,7 @@ if __name__ == '__main__':
     print("Running k: ", k)
     ### IWAE
     if run_iwae:
+      print(1)
       iwaeModel = IWAEModel2(x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=k)
 
       iwae_train_loss = iwaeModel.train(train_loader, max_i, batch_size)
@@ -75,6 +76,9 @@ if __name__ == '__main__':
 
     ### VAE
     if run_vae:
+      print(run_vae)
+      print(2)
+
       vaeModel = VAEModel2(x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=k)
 
       vae_train_loss = vaeModel.train(train_loader, max_i, batch_size)
