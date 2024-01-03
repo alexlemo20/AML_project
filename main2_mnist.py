@@ -11,11 +11,12 @@ from binarizations import CustomMNIST
 if __name__ == '__main__':
   print("MNIST")
   dataset_path = '~/datasets'
-  outputs_dir = "outputs/MNIST/L2"
-  save_outputs = False # If the program should save the losses to file
+  outputs_dir = "outputs/MNIST/Run2/L2"
+  save_outputs = True # If the program should save the losses to file
   run_iwae = True
   run_vae = True  
   batch_size = 20
+  compile_model = True
 
   # Max i value
   max_i = 5
@@ -50,7 +51,7 @@ if __name__ == '__main__':
     ### IWAE
     if run_iwae:
       print("Running iwae")
-      iwaeModel = IWAEModel2(x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=k,compile_model=False)
+      iwaeModel = IWAEModel2(x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=k, compile_model=compile_model)
 
       iwae_train_loss = iwaeModel.train(train_loader, max_i, batch_size)
       print("IWAE Training", iwae_train_loss)
@@ -67,7 +68,7 @@ if __name__ == '__main__':
     ### VAE
     if run_vae:
       print("Running vae")
-      vaeModel = VAEModel2(x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=k,compile_model=False)
+      vaeModel = VAEModel2(x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=k, compile_model=compile_model)
 
       vae_train_loss = vaeModel.train(train_loader, max_i, batch_size)
       print("Training", vae_train_loss)

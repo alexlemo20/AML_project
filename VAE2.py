@@ -124,7 +124,7 @@ class VAECoreModel2(nn.Module):
 
 
 class VAEModel2():
-    def __init__(self, x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=10, compile_model=False) -> None:
+    def __init__(self, x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=10, compile_model=True) -> None:
         self.k = k
         self.x_dim = x_dim
         self.hidden_dim_1 = hidden_dim_1
