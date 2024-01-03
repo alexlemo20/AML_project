@@ -115,11 +115,8 @@ class VAECoreModel2(nn.Module):
 
     def forward(self, x, k):
         mean1, log_var1, z1, mean2, log_var2 = self.Encoder(x, k)
-
-        log_var2_kki = log_var2.unsqueeze(1).repeat(1, k, 1, 1)
-        mean2_kki = mean2.unsqueeze(1).repeat(1, k, 1, 1)
-
-        z2 = self.reparameterization(mean2_kki, torch.exp(0.5*log_var2_kki))# takes exponential function (log var -> var)
+        
+        z2 = self.reparameterization(mean2, torch.exp(0.5*log_var2))# takes exponential function (log var -> var)
 
         theta, z_d, mean_d, log_var_d = self.Decoder(z1,z2)
 
@@ -127,7 +124,7 @@ class VAECoreModel2(nn.Module):
 
 
 class VAEModel2():
-    def __init__(self, x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=10, compile_model=True) -> None:
+    def __init__(self, x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=10, compile_model=False) -> None:
         self.k = k
         self.x_dim = x_dim
         self.hidden_dim_1 = hidden_dim_1
@@ -212,11 +209,9 @@ class VAEModel2():
 
         lpxz1 = torch.sum(pxz1.log_prob(x_ki), dim=-1)
 
-
-        z1k = z1.unsqueeze(1).repeat(1, self.k,1, 1)
         #print("z1k : ",z1k.shape)
         pz1z2 = dists.Normal(mean_d, (0.5*log_var_d).exp())
-        lpz1z2 = torch.sum(pz1z2.log_prob(z1k), dim=-1)
+        lpz1z2 = torch.sum(pz1z2.log_prob(z1), dim=-1)
         
         pz2 = dists.Normal(0, 1) # Between encode / decoder
         lpz2 = torch.sum(pz2.log_prob(z2), dim=-1)
@@ -228,16 +223,11 @@ class VAEModel2():
         # z1 = qz1x.sample(k) # we may need to sample and then update mean2
         lqz1x = torch.sum(qz1x.log_prob(z1), dim=-1)
 
-        mean2 = mean2.unsqueeze(1).repeat(1,self.k,  1,  1).to(self.device)
-        log_var2 = log_var2.unsqueeze(1).repeat(1,self.k, 1, 1).to(self.device)
         #print("\nmean2 : ",mean2.shape)
         qz2z1 = dists.Normal(mean2, (0.5*log_var2).exp())
         lqz2z1 = torch.sum(qz2z1.log_prob(z2), dim=-1)
         
         #[batch_size, k, k]
-        lpz1z2 = lpz1z2.mean(2)
-        lpz2 = lpz2.mean(2)
-        lqz2z1 = lqz2z1.mean(2)
 
         log_w = lpxz1 + lpz1z2 + lpz2 - lqz1x - lqz2z1
 

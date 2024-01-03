@@ -18,10 +18,8 @@ class IWAEModel2(VAEModel2):
 
         lpxz1 = torch.sum(pxz1.log_prob(x_ki), dim=-1)
 
-
-        z1k = z1.unsqueeze(1).repeat(1, self.k,1, 1)
         pz1z2 = dists.Normal(mean_d, (0.5*log_var_d).exp()) 
-        lpz1z2 = torch.sum(pz1z2.log_prob(z1k), dim=-1) 
+        lpz1z2 = torch.sum(pz1z2.log_prob(z1), dim=-1) 
         
         pz2 = dists.Normal(0, 1) # Between encode / decoder
         lpz2 = torch.sum(pz2.log_prob(z2), dim=-1)
@@ -34,16 +32,9 @@ class IWAEModel2(VAEModel2):
         lqz1x = torch.sum(qz1x.log_prob(z1), dim=-1)
 
 
-        mean2 = mean2.unsqueeze(1).repeat(1,self.k,  1,  1).to(self.device)
-        log_var2 = log_var2.unsqueeze(1).repeat(1,self.k, 1, 1).to(self.device)
         qz2z1 = dists.Normal(mean2, (0.5*log_var2).exp())
         lqz2z1 = torch.sum(qz2z1.log_prob(z2), dim=-1)
         
-
-        lpz1z2 = lpz1z2.mean(2)
-        lpz2 = lpz2.mean(2)
-        lqz2z1 = lqz2z1.mean(2)
-
         log_w = lpxz1 + lpz1z2 + lpz2 - lqz1x - lqz2z1
         
         # loss = - torch.mean(log_w) # CHECK: tf.reduce_mean(tf.reduce_mean(log_w, axis=0), axis=-1)
