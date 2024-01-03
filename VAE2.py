@@ -8,7 +8,7 @@ import torch.distributions as dists
 
 class VAEEncoder2(nn.Module):
     # encoder outputs the parameters of variational distribution "q"
-    def __init__(self, input_dim, hidden_dim_1=200, latent_dim_1=100, hidden_dim_2=100, latent_dim_2=50, k=1):
+    def __init__(self, input_dim, hidden_dim_1=200, latent_dim_1=100, hidden_dim_2=100, latent_dim_2=50): #k=1
         super(VAEEncoder2, self).__init__()
 
         self.FC_enc1  = nn.Linear(input_dim, hidden_dim_1) # FC stands for a fully connected layer
@@ -21,13 +21,15 @@ class VAEEncoder2(nn.Module):
         self.FC_mean2 = nn.Linear(hidden_dim_2, latent_dim_2)
         self.FC_var2  = nn.Linear(hidden_dim_2, latent_dim_2)
 
-        self.k = k
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+        #self.k = k
 
         self.activation = nn.Tanh() # will use this to add non-linearity to our model
 
         self.training = True
 
-    def forward(self, x):
+    def forward(self, x, k):
         h_1      = self.activation(self.FC_enc1(x))
         h_2      = self.activation(self.FC_enc2(h_1))
         mean1    = self.FC_mean1(h_2)  # mean
@@ -35,8 +37,8 @@ class VAEEncoder2(nn.Module):
 
 
         #if k > 1:
-        log_var_ki = log_var1.unsqueeze(1).repeat(1, self.k, 1) #torch.tile(log_var, (k,1))
-        mean_ki = mean1.unsqueeze(1).repeat(1, self.k, 1) # torch.tile(mean, (k,1))
+        log_var_ki = log_var1.unsqueeze(1).repeat(1, k, 1) #torch.tile(log_var, (k,1))
+        mean_ki = mean1.unsqueeze(1).repeat(1, k, 1) # torch.tile(mean, (k,1))
 
         z1 = self.reparameterization(mean_ki, torch.exp(0.5*log_var_ki)) # 0.5*
 
@@ -50,7 +52,7 @@ class VAEEncoder2(nn.Module):
     
     def reparameterization(self, mean, var):
         with torch.no_grad():
-            eps = torch.randn_like(mean)
+            eps = torch.randn_like(mean, device=self.device)
         z = mean + var * eps
         return z
     
@@ -67,6 +69,8 @@ class VAEDecoder2(nn.Module):
         self.FC_dec3   = nn.Linear(latent_dim_1, hidden_dim_1)
         self.FC_dec4   = nn.Linear(hidden_dim_1, hidden_dim_1)
         self.FC_output = nn.Linear(hidden_dim_1, output_dim)
+
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
         self.activation = nn.Tanh() # again for non-linearity
 
@@ -86,32 +90,34 @@ class VAEDecoder2(nn.Module):
     
     def reparameterization(self, mean, var):
         with torch.no_grad():
-            eps = torch.randn_like(mean)
+            eps = torch.randn_like(mean, device=self.device)
         z = mean + var * eps
         return z
 
 class VAECoreModel2(nn.Module):
-    def __init__(self, Encoder, Decoder, x_dim, k=10):
+    def __init__(self, Encoder, Decoder, x_dim): #k=1
         super(VAECoreModel2, self).__init__()
         self.Encoder = Encoder
         self.Decoder = Decoder
 
-        self.k = k
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+        #self.k = k
         self.x_dim = x_dim
 
     def reparameterization(self, mean, var):
         with torch.no_grad():
-            eps = torch.randn_like(mean)
+            eps = torch.randn_like(mean, device=self.device)
         
         z = mean + var * eps
         return z
 
 
-    def forward(self, x):
-        mean1, log_var1, z1, mean2, log_var2 = self.Encoder(x)
+    def forward(self, x, k):
+        mean1, log_var1, z1, mean2, log_var2 = self.Encoder(x, k)
 
-        log_var2_kki = log_var2.unsqueeze(1).repeat(1, self.k, 1, 1)
-        mean2_kki = mean2.unsqueeze(1).repeat(1, self.k, 1, 1)
+        log_var2_kki = log_var2.unsqueeze(1).repeat(1, k, 1, 1)
+        mean2_kki = mean2.unsqueeze(1).repeat(1, k, 1, 1)
 
         z2 = self.reparameterization(mean2_kki, torch.exp(0.5*log_var2_kki))# takes exponential function (log var -> var)
 
@@ -121,7 +127,7 @@ class VAECoreModel2(nn.Module):
 
 
 class VAEModel2():
-    def __init__(self, x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=10) -> None:
+    def __init__(self, x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=10, compile_model=True) -> None:
         self.k = k
         self.x_dim = x_dim
         self.hidden_dim_1 = hidden_dim_1
@@ -131,20 +137,22 @@ class VAEModel2():
         self.latent_dim_2 = latent_dim_2
         self.lr = 0
         
-        self.encoder = VAEEncoder2(x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k)
-        self.decoder = VAEDecoder2(x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2)
-
-        self.model = VAECoreModel2(Encoder=self.encoder, Decoder=self.decoder, x_dim=x_dim, k=k)
-
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
+        
+        self.encoder = VAEEncoder2(x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2)
+        self.decoder = VAEDecoder2(x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2)
         self.encoder.to(self.device)
         self.decoder.to(self.device)
+
+        self.model = VAECoreModel2(Encoder=self.encoder, Decoder=self.decoder, x_dim=x_dim) 
         self.model.to(self.device)
-        #Self.model = torch.compile(self.model, mode="reduce-overhead")
+        if self.device == "cuda" and compile_model:
+            print("Compiled model")
+            self.model = torch.compile(self.model, mode="reduce-overhead")
 
     def calculate_lr(self, i, i_max):
         self.lr = 0.001 * 10 ** (-i/i_max)
+
     def train(self, train_loader, i_max, batch_size = 20):
         self.model.train()
 
@@ -170,11 +178,11 @@ class VAEModel2():
                         x = x.to(self.device)
                         optimizer.zero_grad(set_to_none=True)
 
-                        theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d = self.model(x)
-                        loss,  au = self.loss_function(x, theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d)
+                        with torch.autocast(device_type='cuda'):
+                            theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d = self.model(x, self.k)
+                            loss,  au = self.loss_function(x, theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d)
 
                         overall_loss += loss.item()
-                        
                         overall_active_units += au
                         
                         loss.backward()
@@ -182,7 +190,8 @@ class VAEModel2():
 
                     loss_epochs[epoch_counter] = overall_loss/(len(train_loader)) # (len(data) - 1 * batch_Size)
                     active_units[epoch_counter] = overall_active_units/(len(train_loader))
-                    print("\tEpoch", epoch_counter + 1, "\tAverage Loss: ",  overall_loss / (len(train_loader)), "\tAverage AU: ", overall_active_units/(len(train_loader)))
+                    if epoch_counter % 10 == 0:
+                        pbar.write(f"\tEpoch {epoch_counter} \tAverage Loss: {overall_loss/(len(train_loader)):.3f} \tAverage AU: {np.round(overall_active_units/(len(train_loader)),2)}")
                     epoch_counter += 1
                     pbar.update(1)
 
@@ -250,9 +259,9 @@ class VAEModel2():
             exit(1)
         # z.shape = [batch_size, k, latent_dim]
 
-
-        active_units = np.array([torch.sum(torch.cov(z1.sum(1)).sum(0)>10**-2).item(), # sum over k
-                        torch.sum(torch.cov(z2.sum(1).sum(1)).sum(0)>10**-2).item()]) # sum over k
+        with torch.no_grad():
+            active_units = np.array([torch.sum(torch.cov(z1.sum(1)).sum(0)>10**-2).item(), # sum over k
+                            torch.sum(torch.cov(z2.sum(1).sum(1)).sum(0)>10**-2).item()]) # sum over k
 
         #print("lpxz1 : ",lpxz1, "lpz1z2 - lqz1x : ", lpz1z2 - lqz1x, "lpz2 - lqz2z1 : ",lpz2 - lqz2z1)
 
@@ -262,18 +271,18 @@ class VAEModel2():
     def compute_evaluation_loss(self, x, k):
         # do stuff
         NLL = 0
-        old_k = self.k
+        #old_k = self.k
         # Set k to the new k for evaluation
-        self.k = k
-        self.model.k = k
-        self.model.Encoder.k = k
+        #self.k = k
+        #self.model.k = k
+        #self.model.Encoder.k = k
 
-        theta, mean, log_var, z = self.model(x)
+        theta, mean, log_var, z = self.model(x, k)
 
 
-        x_ki = x.unsqueeze(1).repeat(1, self.k, 1).to(self.device)
-        mu_z_ki = mean.unsqueeze(1).repeat(1, self.k, 1).to(self.device)
-        sigma_z_ki = torch.exp(0.5*log_var).unsqueeze(1).repeat(1, self.k, 1).to(self.device)   # 0.5*      
+        x_ki = x.unsqueeze(1).repeat(1, k, 1).to(self.device)
+        mu_z_ki = mean.unsqueeze(1).repeat(1, k, 1).to(self.device)
+        sigma_z_ki = torch.exp(0.5*log_var).unsqueeze(1).repeat(1, k, 1).to(self.device)   # 0.5*      
 
         log_p =  dists.Bernoulli(theta).log_prob(x_ki).sum(axis=2)
 
@@ -284,9 +293,9 @@ class VAEModel2():
         NLL = -(torch.logsumexp(log_w, 1) -  np.log(k)).mean()
 
         # Reset k
-        self.k = old_k
-        self.model.k = old_k
-        self.model.Encoder.k = old_k
+        #self.k = old_k
+        #self.model.k = old_k
+        #self.model.Encoder.k = old_k
 
         return NLL, torch.mean(log_w) 
 
@@ -308,12 +317,20 @@ class VAEModel2():
                     x = x.to(self.device)
                     #optimizer.zero_grad(set_to_none=True)
 
-                    theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d = self.model(x)
+                    # Temp fix until we get eval loss...
+                    old_k = self.k
+                    self.k = k
+                    # end temp
+                    theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d = self.model(x, k)
                     loss,  au  = self.loss_function(x, theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d)
                     # ---------------------------------------
                     # may need to use compute evaluation loss
                     # ---------------------------------------
-                    au = 0
+                    #au = 0
+
+                    # Temp fix until we get eval loss...
+                    self.k = old_k
+                    # end temp
 
                     total_NLL += loss.item()
                     pbar.update(1)

@@ -9,8 +9,8 @@ from VAE2 import VAEModel2
 
 
 class IWAEModel2(VAEModel2):
-    def __init__(self, x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=10):
-        super(IWAEModel2, self).__init__(x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=k)
+    def __init__(self, x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=10, compile_model=True):
+        super(IWAEModel2, self).__init__(x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=k, compile_model=compile_model)
 
     def loss_function(self, x, theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d):
         x_ki = x.unsqueeze(1).repeat(1, self.k, 1).to(self.device)
@@ -54,8 +54,9 @@ class IWAEModel2(VAEModel2):
         # compute loss (negative IWAE objective)
         loss = -(w_tilde * log_w).sum(1).mean() # check axis
 
-        active_units = np.array([torch.sum(torch.cov(z1.sum(1)).sum(0)>10**-2).item(), # sum over k
-                        torch.sum(torch.cov(z2.sum(1).sum(1)).sum(0)>10**-2).item()]) # sum over k
+        with torch.no_grad():
+            active_units = np.array([torch.sum(torch.cov(z1.sum(1)).sum(0)>10**-2).item(), # sum over k
+                            torch.sum(torch.cov(z2.sum(1).sum(1)).sum(0)>10**-2).item()]) # sum over k
 
         return loss, active_units
 
