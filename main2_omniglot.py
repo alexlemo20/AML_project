@@ -10,17 +10,17 @@ from binarizations import CustomOmniglot
 if __name__ == '__main__':
   print("Omniglot")
   dataset_path = '~/datasets'
-  outputs_dir = "outputs/omniglot/Run2/L2"
+  outputs_dir = "outputs/omniglot/Run4_minus_k/L2"
   save_outputs = True # If the program should save the losses to file
   run_iwae = True
-  run_vae = True  
-  batch_size = 20
+  run_vae = False  
+  batch_size = 80
   compile_model = True
 
   # Max i value
-  max_i = 5
+  max_i = 7
   ks = [1,5,50]
-  eval_k = 50
+  eval_k = 5000
 
   # Dimensions of the input, the hidden layer, and the latent space.
   x_dim  = 784
@@ -38,7 +38,7 @@ if __name__ == '__main__':
   test_dataset  = CustomOmniglot(train=False) 
 
   train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, drop_last=True, pin_memory=True, num_workers=2 if torch.cuda.is_available() else 0) # num_workers=12
-  test_loader  = DataLoader(dataset=test_dataset,  batch_size=batch_size, shuffle=False, drop_last=True, pin_memory=True, num_workers=2 if torch.cuda.is_available() else 0) # num_workers=12
+  test_loader  = DataLoader(dataset=test_dataset,  batch_size=20, shuffle=False, drop_last=True, pin_memory=True, num_workers=2 if torch.cuda.is_available() else 0) # num_workers=12
 
   if torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
@@ -55,7 +55,7 @@ if __name__ == '__main__':
       iwae_train_loss = iwaeModel.train(train_loader, max_i, batch_size)
       print("IWAE Training", iwae_train_loss)
 
-      iwae_eval_nll, active_units = iwaeModel.evaluate(test_loader, batch_size, k=eval_k)
+      iwae_eval_nll, active_units = iwaeModel.evaluate(test_loader, 20, k=eval_k)
       print("IWAE Evaluation complete!", "\t NLL: ", iwae_eval_nll, "\t Active Units: ", active_units)
 
       if save_outputs:
@@ -72,11 +72,11 @@ if __name__ == '__main__':
       vae_train_loss = vaeModel.train(train_loader, max_i, batch_size)
       print("Training", vae_train_loss)
 
-      vae_eval_nll, active_units = vaeModel.evaluate(test_loader, batch_size, k=eval_k)
+      vae_eval_nll, active_units = vaeModel.evaluate(test_loader, 20, k=eval_k)
       print("Evaluation complete!","\t NLL :",vae_eval_nll, "\t Active Units: ", active_units)
 
-    if save_outputs:       
-      torch.save(vae_eval_nll, f"{outputs_dir}/k{k}_vae_eval_nll.pt")
-      torch.save(vae_train_loss, f"{outputs_dir}/k{k}_vae_train_loss.pt")
-      torch.save(active_units, f"{outputs_dir}/k{k}_vae_active_units.pt")
-      torch.save(vaeModel.model.state_dict(), f"{outputs_dir}/k{k}_vae_trained_model.pt")        
+      if save_outputs:       
+        torch.save(vae_eval_nll, f"{outputs_dir}/k{k}_vae_eval_nll.pt")
+        torch.save(vae_train_loss, f"{outputs_dir}/k{k}_vae_train_loss.pt")
+        torch.save(active_units, f"{outputs_dir}/k{k}_vae_active_units.pt")
+        torch.save(vaeModel.model.state_dict(), f"{outputs_dir}/k{k}_vae_trained_model.pt")        

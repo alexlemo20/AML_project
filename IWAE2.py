@@ -11,6 +11,7 @@ from VAE2 import VAEModel2
 class IWAEModel2(VAEModel2):
     def __init__(self, x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=10, compile_model=True):
         super(IWAEModel2, self).__init__(x_dim, hidden_dim_1, latent_dim_1, hidden_dim_2, latent_dim_2, k=k, compile_model=compile_model)
+        self.log_k = np.log(self.k)
 
     def loss_function(self, x, theta, mean1, log_var1, z1, mean2, log_var2, z2, z_d, mean_d, log_var_d):
         x_ki = x.unsqueeze(1).repeat(1, self.k, 1).to(self.device)
@@ -40,14 +41,16 @@ class IWAEModel2(VAEModel2):
         # loss = - torch.mean(log_w) # CHECK: tf.reduce_mean(tf.reduce_mean(log_w, axis=0), axis=-1)
 
         # copmute normalized importance weights (no gradient)
-        log_w_tilde = log_w - torch.logsumexp(log_w, dim=1, keepdim=True) # check axis
-        w_tilde = log_w_tilde.exp().detach()
+        #log_w_tilde = log_w - torch.logsumexp(log_w, dim=1, keepdim=True) # check axis
+        #w_tilde = log_w_tilde.exp().detach()
         # compute loss (negative IWAE objective)
-        loss = -(w_tilde * log_w).sum(1).mean() # check axis
+        #loss = -(w_tilde * log_w).sum(1).mean(0) # check axis
 
-        with torch.no_grad():
-            active_units = np.array([torch.sum(torch.cov(z1.sum(1)).sum(0)>10**-2).item(), # sum over k
-                            torch.sum(torch.cov(z2.sum(1).sum(1)).sum(0)>10**-2).item()]) # sum over k
+        loss = (-torch.logsumexp(log_w, dim=1) + self.log_k).mean(0) # - self.log_k too?
 
+        #with torch.no_grad():
+        #    active_units = np.array([torch.sum(torch.cov(z1.sum(1)).sum(0)>10**-2).item(), # sum over k
+        #                    torch.sum(torch.cov(z2.sum(1).sum(1)).sum(0)>10**-2).item()]) # sum over k
+        active_units = 0
         return loss, active_units
 
