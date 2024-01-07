@@ -132,9 +132,8 @@ class VAEModel():
                     overall_loss = 0 #torch.zeros(1, device=self.device)
                     overall_active_units = 0 #torch.zeros(1, device=self.device)
                     for batch_idx, (x, _) in enumerate(train_loader):
-                        x = x.view(batch_size, self.x_dim)
+                        x = x.view(batch_size, self.x_dim).to(self.device)
 
-                        x = x.to(self.device)
                         optimizer.zero_grad(set_to_none=True)
 
                         #with torch.autocast(device_type="cuda"):
@@ -142,7 +141,7 @@ class VAEModel():
                         loss, au = self.loss_function(x, theta, mean, log_var, z )
 
                         overall_loss += loss.item()
-                        overall_active_units += au.item()
+                        overall_active_units += au
                         #overall_loss += loss
                         #overall_active_units += au
                         
@@ -153,7 +152,7 @@ class VAEModel():
                     active_units[epoch_counter] = overall_active_units/(len(train_loader))
                     #print("\tEpoch", epoch_counter + 1, "\tAverage Loss: ",  overall_loss/(len(train_loader)), "\tAverage AU: ", overall_active_units/(len(train_loader)))
                     if epoch_counter % 10 == 0:
-                        pbar.write(f"\tEpoch {epoch_counter} \tAverage Loss: {overall_loss/(len(train_loader)):.3f} \tAverage AU: {overall_active_units/(len(train_loader)):.3f}")
+                        pbar.write(f"\tEpoch {epoch_counter} \tAverage Loss: {overall_loss/(len(train_loader)):.3f}")
                     epoch_counter += 1
                     pbar.update(1)
 
@@ -172,9 +171,9 @@ class VAEModel():
         loss = -elbo
 
         # z.shape = [batch_size, k, latent_dim]
-        with torch.no_grad():
-            active_units = torch.sum(torch.cov(z.sum(1)).sum(0)>10**-2) # sum over k
-
+        #with torch.no_grad():
+        #    active_units = torch.sum(torch.cov(z.sum(1)).sum(0)>10**-2) # sum over k
+        active_units = 0
 
         # Calculate activation probabilities
         #activation_probs = torch.sigmoid(mean)
@@ -208,8 +207,7 @@ class VAEModel():
         
         NLL = -(torch.logsumexp(log_w, 1) -  np.log(k)).mean()
 
-
-        active_units = torch.sum(torch.cov(z.sum(1)).sum(0)>10**-2) # sum over k
+        active_units = torch.sum(torch.cov(torch.mean(z, dim=1))>10**-2, dim=1, dtype=torch.float).mean() # mean over k, sum over latent space and mean over batch
 
         return NLL, active_units
 

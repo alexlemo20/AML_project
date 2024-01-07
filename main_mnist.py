@@ -19,11 +19,12 @@ from binarizations import BernoulliTransform, AlternativeTransform, ThresholdTra
 if __name__ == '__main__':
 #def runMNIST():
   dataset_path = '~/datasets'
-  outputs_dir = "outputs/MNIST/L1" # MNIST
+  outputs_dir = "outputs/MNIST/new_loss_bs80" # MNIST
   save_outputs = True # If the program should save the losses to file
   run_iwae = True
   run_vae = True
-  batch_size = 40
+  batch_size = 80
+  eval_batch_size = 20
 
   # Max i value
   max_i = 7 
@@ -47,13 +48,14 @@ if __name__ == '__main__':
 
 
   # Dataloaders
-  train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, drop_last=True, pin_memory=True, num_workers=2) # 2 fastest
-  test_loader  = DataLoader(dataset=test_dataset,  batch_size=batch_size, shuffle=False, drop_last=True, pin_memory=True, num_workers=2)
+  train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, drop_last=True, pin_memory=True, num_workers=4) # 2 fastest
+  test_loader  = DataLoader(dataset=test_dataset,  batch_size=eval_batch_size, shuffle=False, drop_last=True, pin_memory=True, num_workers=4)
 
   # Used for gpu, comment out if run on cpu
   torch.backends.cudnn.benchmark = True
   torch.set_float32_matmul_precision('high')
 
+  print("MNIST")
   for k in ks:
     print("Running k: ", k, " GPU: ", torch.cuda.is_available())
     ### IWAE
@@ -64,7 +66,7 @@ if __name__ == '__main__':
       iwae_train_loss = iwaeModel.train(train_loader, max_i, batch_size)
       print("IWAE Training", iwae_train_loss)
 
-      iwae_eval_nll, active_units = iwaeModel.evaluate(test_loader, batch_size, k=eval_k)
+      iwae_eval_nll, active_units = iwaeModel.evaluate(test_loader, eval_batch_size, k=eval_k)
       print("IWAE Evaluation complete!", "\t NLL :",iwae_eval_nll, "\t Active units: ", active_units)
 
       if save_outputs:
@@ -82,7 +84,7 @@ if __name__ == '__main__':
       vae_train_loss = vaeModel.train(train_loader, max_i, batch_size)
       print("VAE Training", vae_train_loss)
 
-      vae_eval_nll, active_units = vaeModel.evaluate(test_loader, batch_size, k=eval_k)
+      vae_eval_nll, active_units = vaeModel.evaluate(test_loader, eval_batch_size, k=eval_k)
       print("VAE Evaluation complete!","\t NLL :",vae_eval_nll, "\t Active units: ", active_units)
 
       if save_outputs:

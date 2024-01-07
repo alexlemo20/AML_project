@@ -19,15 +19,16 @@ from binarizations import BernoulliTransform, AlternativeTransform, ThresholdTra
 if __name__ == '__main__':
 #def runOmniglot():
   dataset_path = '~/datasets'
-  outputs_dir = "outputs/omniglot/L1" # OMNIGLOT
-  save_outputs = True # If the program should save the losses to file
+  outputs_dir = "outputs/omniglot/new_loss_bs80" # OMNIGLOT
+  save_outputs = False # If the program should save the losses to file
   run_iwae = True
   run_vae = True
-  batch_size = 20
+  batch_size = 80
+  eval_batch_size = 20
 
   # Max i value
-  max_i = 7
-  ks = [1,5,50]
+  max_i = 1
+  ks = [50,5,1]
   eval_k = 5000
 
   # Dimensions of the input, the hidden layer, and the latent space.
@@ -35,27 +36,11 @@ if __name__ == '__main__':
   hidden_dim = 200
   latent_dim = 50
 
-  #omniglot_transform = transforms.Compose([
-  #        transforms.ToTensor(),
-  #        BernoulliTransform(),
-  #        #transforms.Resize(28, antialias=False),
-  #])
-
 
   if not os.path.exists(outputs_dir):
     # Create a new directory because it does not exist
     os.makedirs(outputs_dir)
-    
-
-  ## OMNIGLOT DATASET (not consistent with paper but might not matter too much, this is according to the creators of the dataset)
-  #train_dataset = Omniglot(dataset_path, background=True, transform=omniglot_transform, download=True) # 19'280 samples
-  #test_dataset  = Omniglot(dataset_path, background=False, transform=omniglot_transform, download=True) # 13'180 samples
   
-  # Move random samples from test to train to be aligned with the paper
-  #add_idx = np.random.choice(len(test_dataset), 5065, replace=False)
-  #remove_idx = np.delete(list(range(len(test_dataset))), add_idx)
-  #train_dataset += torch.utils.data.Subset(test_dataset, add_idx)
-  #test_dataset = torch.utils.data.Subset(test_dataset, remove_idx)
 
   train_dataset = CustomOmniglot(train=True) # Same as in the paper
   test_dataset  = CustomOmniglot(train=False) 
@@ -63,7 +48,7 @@ if __name__ == '__main__':
 
   # Dataloaders
   train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, drop_last=True, pin_memory=True, num_workers=2) # 2 fastest
-  test_loader  = DataLoader(dataset=test_dataset,  batch_size=batch_size, shuffle=False, drop_last=True, pin_memory=True, num_workers=2)
+  test_loader  = DataLoader(dataset=test_dataset, batch_size=eval_batch_size, shuffle=False, drop_last=True, pin_memory=True, num_workers=2)
 
   # Used for gpu, comment out if run on cpu
   torch.backends.cudnn.benchmark = True
@@ -78,7 +63,7 @@ if __name__ == '__main__':
       iwae_train_loss = iwaeModel.train(train_loader, max_i, batch_size)
       print("IWAE Training", iwae_train_loss)
 
-      iwae_eval_nll, active_units = iwaeModel.evaluate(test_loader, batch_size, k=eval_k)
+      iwae_eval_nll, active_units = iwaeModel.evaluate(test_loader, eval_batch_size, k=eval_k)
       print("IWAE Evaluation complete!", "\t NLL :",iwae_eval_nll, "\t Active units: ", active_units)
 
       if save_outputs:
@@ -95,7 +80,7 @@ if __name__ == '__main__':
       vae_train_loss = vaeModel.train(train_loader, max_i, batch_size)
       print("VAE Training", vae_train_loss)
 
-      vae_eval_nll, active_units = vaeModel.evaluate(test_loader, batch_size, k=eval_k)
+      vae_eval_nll, active_units = vaeModel.evaluate(test_loader, eval_batch_size, k=eval_k)
       print("VAE Evaluation complete!","\t NLL :",vae_eval_nll, "\t Active units: ", active_units)
 
       if save_outputs:
